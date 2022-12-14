@@ -3,7 +3,7 @@ Summary of data analysis progress                                   Dec 14 2022 
 Usage
 ----
 
-Calling the code on Dooley Laptop in IBCA machine
+Calling the code on "Dooley" windows Laptop in IBCA
 
 RECOMMENDED:
     set "IN" and "REJECT" path variables in main.py. Save.
@@ -14,10 +14,10 @@ RECOMMENDED:
     NB main.py uses DoolCentroid.py
 
 The same processing can be done using the less Object oriented program:
-    set "IN" and "REJECT" path variables in main.py. Save.
+    set "IN" and "REJECT" path variables in standalone.py. Save.
     open powershell
     > cd ~/Desktop/RidgeTrack-v2
-    > python main.py
+    > python standalone.py
 
     NB standalone.py does NOT use DoolCentroid.py but is similar. 
     this approach is less efficent and much more prone to bugs as it is updated.
@@ -44,12 +44,12 @@ DoolCentroid.LocateCentroids():
     determines CoM centroid within each window. window is created by cropping background-reduced images.
     stores centroid data to DoolCentroid.CentroidDataFrame class variable.
 
-DooleyCentroid.CreateDataCSV():
+DoolCentroid.CreateDataCSV():
     saves data to csv file. Care was made to ensure that output csv matched previous csv files created with
-    the original RidgeTrack program fro 2019.
+    the original RidgeTrack program from 2019.
 
 DoolCentroid.CreateGifs():
-    creates gifs to visual inspection. generated gifs are not expected to reveal quantitative data, but serve
+    creates gifs for visual inspection. generated gifs are not expected to reveal quantitative data, but serve
     as a straight forward method of first approximation centroid validation and can be used for qualitative 
     discussions of beam motion.  
 
@@ -60,3 +60,8 @@ Notes
 While beam intensity doesnt change, IBCA lights turing on increaes the background and therefore the resultant 
 reduced image beam appears to be much dimmer. CoM centroiding shouldnt be effected too much by this, since windows
 are static across images, but may want to play with filter sizes and/or make the size dynamic based on average counts. 
+
+to upgrade libraries:
+    powershell
+    > python -m pip install --upgrade pip
+    > python -m pip install --upgrade <package_name>
