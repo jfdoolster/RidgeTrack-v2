@@ -6,10 +6,11 @@ import pandas as pd
 import datetime as dt
 from scipy import ndimage
 import matplotlib.pyplot as plt
+from PIL import Image, ImageDraw
 
 
-testdir = "/home/dooley/Desktop/DOOLEY-20221211/20221103-DOOLEY"
-#testdir = "C:/Users/jdooley/Desktop/20221103-DOOLEY"
+#testdir = "/home/dooley/Desktop/DOOLEY-20221211/20221103-DOOLEY"
+testdir = "C:/Users/jdooley/Desktop/20221103-DOOLEY"
 input_directory = testdir + "/IN/" 
 reject_directory  = testdir + "/Reject/" 
 OUT = testdir + ""  # <-- add filename in quotes if desired
@@ -188,7 +189,7 @@ if __name__=="__main__":
 				print("(%d of %d): \033[1mEstimating background\033[0m of %s (size=%d px)..." % (i+1, len(ImageArrays), image_name_sm, filter_size_pixels))
 
 				# estimate background array with large median filter (>= twice centroid diameter of ~20px)
-				bg_array = ndimage.filters.median_filter(image_array, size=filter_size_pixels)
+				bg_array = ndimage.median_filter(image_array, size=filter_size_pixels)
 
 				if plot_prompt:
 					# user input to view plots (plots called at end of current class function)
@@ -200,7 +201,7 @@ if __name__=="__main__":
 			print("(%d of %d): Removing Background from %s..." % (i+1, len(ImageArrays), image_name_sm,))
 
 			# subtract background from image array. small median filter (3px) to remove spurious pixels 
-			reduced_image_array = ndimage.filters.median_filter((image_array - bg_array), size=3)
+			reduced_image_array = ndimage.median_filter((image_array - bg_array), size=3)
 
 			# populate class variables
 			BackgroundArrays.append(bg_array)
@@ -373,37 +374,41 @@ if __name__=="__main__":
 		Save dataframe as csv file
 		Must first run LocateCentroid() class function
 		'''
-		csv_path = OUT
-		# if given path is a directory, output csv is saved at 'csv_path/centroids.csv'
-		if os.path.exists(csv_path) and os.path.isdir(csv_path):
-			csv_path = csv_path+"/centroids.csv"
+		path = OUT
+		# if given path is a directory, output csv is saved at 'path/centroids.csv'
+		if os.path.exists(path) and os.path.isdir(path):
+			path = path+"/centroids.csv"
 
-		# if csv_path exists, prompt user about overwritting it
-		if  os.path.exists(csv_path) and os.path.isfile(csv_path):
-			res = input("%s exists. Overwrite? [y]/n " % csv_path)
+		# if path exists, prompt user about overwritting it
+		if  os.path.exists(path) and os.path.isfile(path):
+			res = input("%s exists. Overwrite? [y]/n " % path)
 			if res == 'n' or res == 'N':
 				exit(0)
+
+		# ensure file extension is .csv
+		path = path.split(".")[0] + ".csv"
 		
-		CentroidDataFrame.to_csv(csv_path, index_label='timestamp')
-		print("centroid data written to %s" % csv_path)
+		CentroidDataFrame.to_csv(path, index_label='timestamp')
+		print("centroid data written to %s" % path)
 
 
 		'''
 		Save dataframe as csv file
 		Must first run LocateCentroid() class function
 		'''
-		gif_path = OUT
-		# if given path is a directory, output gif is saved at 'gif_path/replay.gif'
-		if os.path.exists(gif_path) and os.path.isdir(gif_path):
-			gif_path = gif_path+"/replay.gif"
+		path = OUT
+		# if given path is a directory, output gif is saved at 'path/replay.gif'
+		if os.path.exists(path) and os.path.isdir(path):
+			path = path+"/replay.gif"
 
-		# if gif_path exists, prompt user about overwritting it
-		if  os.path.exists(gif_path) and os.path.isfile(gif_path):
+		# if path exists, prompt user about overwritting it
+		if  os.path.exists(path) and os.path.isfile(path):
 			res = input("gifs already exist. Overwrite? [y]/n ")
 			if res == 'n' or res == 'N':
 				exit(0)
 
-		from PIL import Image, ImageDraw
+		# ensure file extension is .gif
+		path = path.split(".")[0] + ".gif"
 
 		frames = []
 		for image_array in ReducedImageArrays:
@@ -426,8 +431,9 @@ if __name__=="__main__":
 			draw_full.text((28, 36), ImageDates[i].strftime("%m/%d/%Y %H:%M:%S"), fill=(255, 0, 0))
 
 		full_frame_one = frames[0]
-		full_frame_one.save(gif_path, format="GIF", append_images=frames,
+		full_frame_one.save(path, format="GIF", append_images=frames,
 				save_all=True, duration=100, loop=0)
+		print("full dataset gif created at %s" % path)
 
 		for win_num in range(centroid_num):
 			window_frames = []
@@ -436,6 +442,8 @@ if __name__=="__main__":
 			w,h = x1-x0, y1-y0
 			for frame in frames:
 				window_frames.append(frame.crop((x0,y0,x1+1,y1+1)).resize((w*10,h*10)))
+			window_path = "%s-w%d.gif" % (path[:-4], (win_num+1))
 			window_frame_one = window_frames[0]
-			window_frame_one.save("%s-w%d.gif" % (gif_path[:-4], (win_num+1)), format="GIF", 
+			window_frame_one.save(window_path, format="GIF", 
 				append_images=window_frames, save_all=True, duration=100, loop=0)
+			print("window %d gif created at %s" % ((win_num+1), window_path))

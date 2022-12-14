@@ -2,12 +2,11 @@ import matplotlib.pyplot as plt
 from DoolCentroid import DoolCentroid
 
 if __name__ =="__main__":
-    #testdir = 'C:/Users/dooley/Documents/brsSpot/'
-    testdir = "/home/dooley/Desktop/DOOLEY-20221211/20221103-DOOLEY"
-    #testdir = "C:/Users/jdooley/Desktop/20221103-DOOLEY"
+    #testdir = "/home/dooley/Desktop/DOOLEY-20221211/20221103-DOOLEY"
+    testdir = "C:/Users/jdooley/Desktop/20221103-DOOLEY"
     IN = testdir + "/IN/" 
     BAD = testdir + "/Reject/" 
-    OUT = testdir + ""  # <-- add filename in quotes if desired
+    OUT = testdir + "/"  # <-- add filename in quotes if desired
 
     # instatansiate the class. initial argments IN and BAD are required; 
     # defualt centroid_num=2; changing this is untested December 22
@@ -33,14 +32,5 @@ if __name__ =="__main__":
 
     print(CENT.CentroidDataFrame)
 
-    CENT.SingleFramePlot(41)
-
     CENT.CreateDataCSV(csv_path = OUT)  # save data frame to csv
-    CENT.CreateGifs(gif_path = OUT)     # create gif of images with windows
-
-    plt.show()
-
-
-
-    
-    
+    CENT.CreateGifs(gif_path = OUT+"/test")     # create gif of images with windows

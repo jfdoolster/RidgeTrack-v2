@@ -1,0 +1,54 @@
+Summary of data analysis progress                                   Dec 14 2022 JFD
+
+Usage
+----
+
+Calling the code on Dooley Laptop in IBCA machine
+
+RECOMMENDED:
+    set "IN" and "REJECT" path variables in main.py. Save.
+    open powershell
+    > cd ~/Desktop/RidgeTrack-v2
+    > python main.py
+
+    NB main.py uses DoolCentroid.py
+
+The same processing can be done using the less Object oriented program:
+    set "IN" and "REJECT" path variables in main.py. Save.
+    open powershell
+    > cd ~/Desktop/RidgeTrack-v2
+    > python main.py
+
+    NB standalone.py does NOT use DoolCentroid.py but is similar. 
+    this approach is less efficent and much more prone to bugs as it is updated.
+
+Summary
+----
+
+DoolCentroid is a class that processes the jpg images from input_directory, 
+estimates each frame's background, detects beam locations and creates "windows",
+then calcuates the CoM centroid of the spots contained in the windows.
+
+Class funtions are summarized below, more detail is available as in-code comments. 
+
+DoolCentroid.EstimateBackground():
+    estimates background for each image using median filter with default size 40pix. 
+    new background estimates are only created when the current image average changes 
+    significantly from the previous image to save processing time.
+
+DoolCentroid.CreateWindows():
+    uses thresholding and scipy.ndimage functions to detect beam locations in background-reduced images.
+    windows take into account all images and grow according to beam motion.
+
+DoolCentroid.LocateCentroids():
+    determines CoM centroid within each window. window is created by cropping background-reduced images.
+    stores centroid data to DoolCentroid.CentroidDataFrame class variable.
+
+DooleyCentroid.CreateDataCSV():
+    saves data to csv file. Care was made to ensure that output csv matched previous csv files created with
+    the original RidgeTrack program fro 2019.
+
+DoolCentroid.CreateGifs():
+    creates gifs to visual inspection. generated gifs are not expected to reveal quantitative data, but serve
+    as a straight forward method of first approximation centroid validation and can be used for qualitative 
+    discussions of beam motion.  
