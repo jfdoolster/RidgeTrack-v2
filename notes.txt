@@ -52,3 +52,11 @@ DoolCentroid.CreateGifs():
     creates gifs to visual inspection. generated gifs are not expected to reveal quantitative data, but serve
     as a straight forward method of first approximation centroid validation and can be used for qualitative 
     discussions of beam motion.  
+
+
+Notes
+---
+
+While beam intensity doesnt change, IBCA lights turing on increaes the background and therefore the resultant 
+reduced image beam appears to be much dimmer. CoM centroiding shouldnt be effected too much by this, since windows
+are static across images, but may want to play with filter sizes and/or make the size dynamic based on average counts. 

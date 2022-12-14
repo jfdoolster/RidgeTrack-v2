@@ -314,29 +314,32 @@ class DoolCentroid:
 	# output dataframe and create gifs
 	###
 
-	def CreateDataCSV(self, path):
+	def CreateDataCSV(self, out_path):
 		'''
 		Save dataframe as csv file
 		Must first run LocateCentroid() class function
 		'''
 		# if given path is a directory, output csv is saved at 'path/centroids.csv'
-		if os.path.exists(path) and os.path.isdir(path):
-			path = path+"/centroids.csv"
+		if os.path.exists(out_path) and os.path.isdir(out_path):
+			out_path = out_path+"/centroids.csv"
 
 		# if path exists, prompt user about overwritting it
-		if  os.path.exists(path) and os.path.isfile(path):
-			res = input("%s exists. Overwrite? [y]/n " % path)
+		if os.path.exists(out_path) and os.path.isfile(out_path):
+			res = input("%s exists. Overwrite? [y]/n " % out_path)
 			if res == 'n' or res == 'N':
 				return
 
 		# ensure file extension is .csv
-		path = path.split(".")[0] + ".csv"
+		if out_path[-4:] != ".csv":
+			print("out_path argument must be a directory or filename ending in '.csv'")
+			exit(1)
+
 		
-		self.CentroidDataFrame.to_csv(path, index_label='timestamp')
-		print("centroid data written to %s" % path)
+		self.CentroidDataFrame.to_csv(out_path, index_label='timestamp')
+		print("centroid data written to %s" % out_path)
 
 
-	def CreateGifs(self, path):
+	def CreateGifs(self, out_path):
 		'''
 		create replay gifs for images and individual windows	
 		Must run LocateCentroid() class function first
@@ -348,17 +351,19 @@ class DoolCentroid:
 			return
 
 		# if given path is a directory, output gif is saved at 'path/replay.gif'
-		if os.path.exists(path) and os.path.isdir(path):
-			path = path+"/replay.gif"
+		if os.path.exists(out_path) and os.path.isdir(out_path):
+			out_path = out_path+"/replay.gif"
 
 		# if path exists, prompt user about overwritting it
-		if  os.path.exists(path) and os.path.isfile(path):
+		if  os.path.exists(out_path) and os.path.isfile(out_path):
 			res = input("gifs already exist. Overwrite? [y]/n ")
 			if res == 'n' or res == 'N':
 				return
 
 		# ensure file extension is .gif
-		path = path.split(".")[0] + ".gif"
+		if out_path[-4:] != ".gif":
+			print("out_path argument must be a directory or filename ending in '.gif'")
+			exit(1)
 
 		frames = []
 		for image_array in self.ReducedImageArrays:
@@ -381,9 +386,9 @@ class DoolCentroid:
 			draw_full.text((28, 36), self.ImageDates[i].strftime("%m/%d/%Y %H:%M:%S"), fill=(255, 0, 0))
 
 		full_frame_one = frames[0]
-		full_frame_one.save(path, format="GIF", append_images=frames,
+		full_frame_one.save(out_path, format="GIF", append_images=frames,
 				save_all=True, duration=100, loop=0)
-		print("full dataset gif created at %s" % path)
+		print("full dataset gif created at %s" % out_path)
 
 		for win_num in range(self.centroid_num):
 			window_frames = []
@@ -392,11 +397,11 @@ class DoolCentroid:
 			w,h = x1-x0, y1-y0
 			for frame in frames:
 				window_frames.append(frame.crop((x0,y0,x1+1,y1+1)).resize((w*10,h*10)))
-			window_path = "%s-w%d.gif" % (path[:-4], (win_num+1))
+			window_out_path = "%s-w%d.gif" % (out_path[:-4], (win_num+1))
 			window_frame_one = window_frames[0]
-			window_frame_one.save(window_path, format="GIF", 
+			window_frame_one.save(window_out_path, format="GIF", 
 				append_images=window_frames, save_all=True, duration=100, loop=0)
-			print("window %d gif created at %s" % ((win_num+1), window_path))
+			print("window %d gif created at %s" % ((win_num+1), window_out_path))
 
 
 	####

@@ -9,8 +9,7 @@ import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw
 
 
-#testdir = "/home/dooley/Desktop/DOOLEY-20221211/20221103-DOOLEY"
-testdir = "C:/Users/jdooley/Desktop/20221103-DOOLEY"
+testdir = "../20221103-DOOLEY"
 input_directory = testdir + "/IN/" 
 reject_directory  = testdir + "/Reject/" 
 OUT = testdir + ""  # <-- add filename in quotes if desired
@@ -375,41 +374,45 @@ if __name__=="__main__":
 		Save dataframe as csv file
 		Must first run LocateCentroid() class function
 		'''
-		path = OUT
+		out_path = OUT + "/standalone_centroids.csv"
 		# if given path is a directory, output csv is saved at 'path/centroids.csv'
-		if os.path.exists(path) and os.path.isdir(path):
-			path = path+"/centroids.csv"
+		if os.path.exists(out_path) and os.path.isdir(out_path):
+			out_path = out_path+"/centroids.csv"
 
 		# if path exists, prompt user about overwritting it
-		if  os.path.exists(path) and os.path.isfile(path):
-			res = input("%s exists. Overwrite? [y]/n " % path)
+		if  os.path.exists(out_path) and os.path.isfile(out_path):
+			res = input("%s exists. Overwrite? [y]/n " % out_path)
 			if res == 'n' or res == 'N':
 				exit(0)
 
 		# ensure file extension is .csv
-		path = path.split(".")[0] + ".csv"
+		if out_path[-4:] != ".csv":
+			print("out_path argument must be a directory or filename ending in '.csv'")
+			exit(1)
 		
-		CentroidDataFrame.to_csv(path, index_label='timestamp')
-		print("centroid data written to %s" % path)
+		CentroidDataFrame.to_csv(out_path, index_label='timestamp')
+		print("centroid data written to %s" % out_path)
 
 
 		'''
 		Save dataframe as csv file
 		Must first run LocateCentroid() class function
 		'''
-		path = OUT
+		out_path = OUT + "/standalone_replay.gif"
 		# if given path is a directory, output gif is saved at 'path/replay.gif'
-		if os.path.exists(path) and os.path.isdir(path):
-			path = path+"/replay.gif"
+		if os.path.exists(out_path) and os.path.isdir(out_path):
+			out_path = out_path+"/replay.gif"
 
 		# if path exists, prompt user about overwritting it
-		if  os.path.exists(path) and os.path.isfile(path):
+		if  os.path.exists(out_path) and os.path.isfile(out_path):
 			res = input("gifs already exist. Overwrite? [y]/n ")
 			if res == 'n' or res == 'N':
 				exit(0)
 
 		# ensure file extension is .gif
-		path = path.split(".")[0] + ".gif"
+		if out_path[-4:] != ".gif":
+			print("out_path argument must be a directory or filename ending in '.gif'")
+			exit(1)
 
 		frames = []
 		for image_array in ReducedImageArrays:
@@ -432,9 +435,9 @@ if __name__=="__main__":
 			draw_full.text((28, 36), ImageDates[i].strftime("%m/%d/%Y %H:%M:%S"), fill=(255, 0, 0))
 
 		full_frame_one = frames[0]
-		full_frame_one.save(path, format="GIF", append_images=frames,
+		full_frame_one.save(out_path, format="GIF", append_images=frames,
 				save_all=True, duration=100, loop=0)
-		print("full dataset gif created at %s" % path)
+		print("full dataset gif created at %s" % out_path)
 
 		for win_num in range(centroid_num):
 			window_frames = []
@@ -443,7 +446,7 @@ if __name__=="__main__":
 			w,h = x1-x0, y1-y0
 			for frame in frames:
 				window_frames.append(frame.crop((x0,y0,x1+1,y1+1)).resize((w*10,h*10)))
-			window_path = "%s-w%d.gif" % (path[:-4], (win_num+1))
+			window_path = "%s-w%d.gif" % (out_path[:-4], (win_num+1))
 			window_frame_one = window_frames[0]
 			window_frame_one.save(window_path, format="GIF", 
 				append_images=window_frames, save_all=True, duration=100, loop=0)
