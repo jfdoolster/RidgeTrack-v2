@@ -158,7 +158,7 @@ class DoolCentroid:
 				if res == "n" or res == "N":
 					exit(0)
 
-	def CreateWindows(self, threshold=20):
+	def CreateWindows(self, threshold=20, padding=0):
 		'''
 		Create subwindows around centroids for unbiased centroiding. 	
 		Image is thresholded and 'features' are found using scipy.ndimage functions
@@ -196,7 +196,7 @@ class DoolCentroid:
 			peaks = ndimage.find_objects(lbl)
 
 			for p in peaks:
-				dx, dy = p
+				dy, dx = p
 
 				# determine window size for current feature 
 				x0,y0 = dx.start, dy.start
@@ -238,7 +238,6 @@ class DoolCentroid:
 			print("Error: Too many windows!?! (should not happen)")
 			exit(1)
 
-		padding = 10
 		for win_num in range(len(peak_windows)):
 			(x0,y0) = peak_windows[win_num][0]
 			(x1,y1) = peak_windows[win_num][1]
@@ -281,15 +280,18 @@ class DoolCentroid:
 			for i in range(len(self.ReducedImageArrays)):
 
 				# extract pixels within current window
-				windowed_image_array = self.ReducedImageArrays[i][x0:x1,y0:y1]
+				windowed_image_array = self.ReducedImageArrays[i][y0:y1,x0:x1]
+				#plt.figure()
+				#plt.imshow(windowed_image_array)
+				#plt.show()
 
 				# calculate the center-of-mass centorid for each extracted window array (and error)
 				# output centroids are in the windowed coordinate system 
 				cx,cy,sigx,sigy = self.centroid(windowed_image_array) 
 
 				# convert centroid location back to the full-frame coordinate system and append to list
-				centroid_x.append(cx+x0)
-				centroid_y.append(cy+y0)
+				centroid_x.append(x0+cx)
+				centroid_y.append(y0+cy)
 				error_x.append(sigx)
 				error_y.append(sigy)
 
@@ -349,12 +351,12 @@ class DoolCentroid:
 				(x1,y1) = self.CentroidWindows[win_num][1]
 
 				# PIL image coordinates are flipped from ndarray coordinates! (swap x and y)
-				draw_full.rectangle((y0,x0,y1,x1), outline=(255,0,0))
+				draw_full.rectangle((x0,y0,x1,y1), outline=(255,0,0))
 
 				r=5
 				cx = self.CentroidDataFrame.iloc[i]["centroid_x%d" % (win_num+1)]
 				cy = self.CentroidDataFrame.iloc[i]["centroid_y%d" % (win_num+1)]
-				draw_full.ellipse((cy,cx,cy,cx), outline=(255,0,0))
+				draw_full.ellipse((cx,cy,cx,cy), outline=(255,0,0))
 
 			draw_full.text((28, 36), self.ImageDates[i].strftime("%m/%d/%Y %H:%M:%S"), fill=(255, 0, 0))
 
@@ -406,9 +408,11 @@ class DoolCentroid:
 		for win_num in range(len(self.CentroidWindows)):
 			x_start = self.CentroidWindows[win_num][0][0]
 			y_start = self.CentroidWindows[win_num][0][1]
-			x_size = self.CentroidWindows[win_num][1][0] - x_start
-			y_size = self.CentroidWindows[win_num][1][1] - y_start
-			print("window_%d: (x,y) = (%d, %d), (w,h) = (%d, %d)" % ((win_num+1), x_start, y_start, x_size, y_size))
+			x_end = self.CentroidWindows[win_num][1][0]
+			y_end = self.CentroidWindows[win_num][1][1]
+			x_size = x_end - x_start
+			y_size = y_end - y_start
+			print("window_%d: (x0,y0) = (%d, %d), (x1,y1) = (%d, %d), (w,h) = (%d, %d)" % ((win_num+1), x_start, y_start, x_end, y_end, x_size, y_size))
 
 	def BackgroundReductionPlot(self, idx):
 		fig, ax = plt.subplots(1,3, sharex=True, sharey=True)
@@ -421,6 +425,19 @@ class DoolCentroid:
 		ax[1].set_title("Background")
 		ax[2].set_title("Reduced Image")
 		plt.show()
+
+	def SingleFramePlot(self, idx):
+
+		# ensure that class variables are populated correctly before continuing
+		if not self.CentroidDataReady():
+			print("Centroid data not ready. Have you run LocateCentroids() class function?")
+			return
+
+		fig, ax = plt.subplots(1,1, sharex=True, sharey=True)
+		ax.imshow(self.ReducedImageArrays[idx], vmax=255)
+
+		for win_num in range(self.centroid_num):
+			ax.plot(self.CentroidDataFrame["centroid_x%d" % (win_num+1)][idx], self.CentroidDataFrame["centroid_y%d" % (win_num+1)][idx],'r.')
 
 	def RejectSingleImage(self, idx, msg=None):
 		image_name_sm = self.ImagePaths[idx].split("/")[-1]
