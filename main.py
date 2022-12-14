@@ -19,7 +19,7 @@ if __name__ =="__main__":
 
     # estimate background using median filter. estimates stored in CENT.BackgroundArrays
     # background reduced image arrays are stored in CENT.ReducedImageArrays
-    CENT.EstimateBackground(filter_size_pixels=45) 
+    CENT.EstimateBackground(filter_size_pixels=40, plot_prompt=False) 
 
     # detect peaks on the reduced Images and calculate limits for centroid windows across all images
     # default threshold=20. used for peak detection with ndimage NOT for centroid calculations in other class functions

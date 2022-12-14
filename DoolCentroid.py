@@ -1,5 +1,6 @@
 import shutil
 import os, glob
+import platform
 import numpy as np
 import pandas as pd
 import datetime as dt
@@ -24,6 +25,7 @@ class DoolCentroid:
 		self.centroid_num = centroid_num
 
 		# initialize class variables for sharing between class functions
+		self.InitNumberImages = 0
 		self.ImagePaths = []         # list of image path names
 		self.ImageDates = []         # list of image timestamps (from path names)
 		self.ImageArrays = []        # list of 2D arrays for each images (default: red) 
@@ -50,8 +52,13 @@ class DoolCentroid:
 		self.ClearImages() # reset class variables to empty
 
 		# get sorted list of filenames from 'IN' directory
-		self.ImagePaths = sorted(glob.glob(self.IN + "*.JPG"),key=os.path.getmtime)
+		if platform.system() == 'Windows':
+			self.ImagePaths = sorted(glob.glob(self.IN + "*.JPG"),key=os.path.getctime)
+		else:
+			self.ImagePaths = sorted(glob.glob(self.IN + "*.JPG"),key=os.path.getmtime)
 		print("%d frames found in %s" % (len(self.ImagePaths), self.IN))
+
+		self.InitNumberImages = len(self.ImagePaths)
 
 		for fname in self.ImagePaths:
 			image_date  = self.getFileDate(fname) # get date from filename 
@@ -72,7 +79,7 @@ class DoolCentroid:
 			self.ImageArrays.append(image_array)
 			self.ImageDates.append(image_date)	
 
-	def EstimateBackground(self, filter_size_pixels=45):
+	def EstimateBackground(self, filter_size_pixels=45, plot_prompt=True):
 		'''
 		Estimate background for images using large median filter.
 		Populate BackgroundArrays and ReducedImageArrays class variables.
@@ -117,15 +124,16 @@ class DoolCentroid:
 
 			# only estimate new background when needed (see above) to save processing time
 			if new_background:
-				print("Estimating background of %s (size=%d px)..." % (image_name_sm, filter_size_pixels))
+				print("(%d of %d): \033[1mEstimating background\033[0m of %s (size=%d px)..." % (i+1, len(self.ImageArrays), image_name_sm, filter_size_pixels))
 
 				# estimate background array with large median filter (>= twice centroid diameter of ~20px)
 				bg_array = ndimage.filters.median_filter(image_array, size=filter_size_pixels)
 
-				# user input to view plots (plots called at end of current class function)
-				res = input("Done! Plot Estimated Background? y/[n] ")
-				if res == "y" or res == "Y":
-					show_plots = True
+				if plot_prompt:
+					# user input to view plots (plots called at end of current class function)
+					res = input("Done! Plot Estimated Background? y/[n] ")
+					if res == "y" or res == "Y":
+						show_plots = True
 
 			
 			print("(%d of %d): Removing Background from %s..." % (i+1, len(self.ImageArrays), image_name_sm,))
@@ -299,9 +307,6 @@ class DoolCentroid:
 		# populated CentroidDataFrame class variable using timestamps as index (legacy. matches OG RidgeTrack output)
 		self.CentroidDataFrame = df.set_index("timestamp")
 
-		# display dataframe in terminal
-		print(self.CentroidDataFrame)
-
 	def CreateDataCSV(self, csv_path):
 		'''
 		Save dataframe as csv file
@@ -313,26 +318,13 @@ class DoolCentroid:
 
 		# if csv_path exists, prompt user about overwritting it
 		if  os.path.exists(csv_path) and os.path.isfile(csv_path):
-			res = input("%s exists. Overwrite? [y]/n" % csv_path)
+			res = input("%s exists. Overwrite? [y]/n " % csv_path)
 			if res == 'n' or res == 'N':
 				return
 		
 		self.CentroidDataFrame.to_csv(csv_path, index_label='timestamp')
 		print("centroid data written to %s" % csv_path)
 
-	def DisplayWindows(self):
-		# ensure that class variables are populated correctly before continuing
-		if not self.CentroidWindowsReady():
-			print("Centroid windows are not ready. Have you run CreateWindows() class function?")
-			exit(1)
-
-		# display information about each of the windows
-		for win_num in range(len(self.CentroidWindows)):
-			x_start = self.CentroidWindows[win_num][0][0]
-			y_start = self.CentroidWindows[win_num][0][1]
-			x_size = self.CentroidWindows[win_num][1][0] - x_start
-			y_size = self.CentroidWindows[win_num][1][1] - y_start
-			print("window_%d: (x,y) = (%d, %d), (w,h) = (%d, %d)" % ((win_num+1), x_start, y_start, x_size, y_size))
 
 	def CreateGifs(self, gif_path):
 
@@ -342,7 +334,7 @@ class DoolCentroid:
 
 		# if gif_path exists, prompt user about overwritting it
 		if  os.path.exists(gif_path) and os.path.isfile(gif_path):
-			res = input("%s exists. Overwrite? [y]/n" % gif_path)
+			res = input("%s exists. Overwrite? [y]/n " % gif_path)
 			if res == 'n' or res == 'N':
 				return
 
@@ -350,23 +342,25 @@ class DoolCentroid:
 
 		frames = [Image.open(image) for image in self.ImagePaths]
 
-
 		for i in range(len(frames)):
-			draw = ImageDraw.Draw(frames[i])
+			draw_full = ImageDraw.Draw(frames[i])
 			for win_num in range(len(self.CentroidWindows)):
 				(x0,y0) = self.CentroidWindows[win_num][0]
 				(x1,y1) = self.CentroidWindows[win_num][1]
 
 				# PIL image coordinates are flipped from ndarray coordinates! (swap x and y)
-				draw.rectangle((y0,x0,y1,x1))
+				draw_full.rectangle((y0,x0,y1,x1), outline=(255,0,0))
 
-			draw.text((28, 36), self.ImageDates[i].strftime("%m/%d/%Y %H:%M:%S"), fill=(255, 0, 0))
+				r=5
+				cx = self.CentroidDataFrame.iloc[i]["centroid_x%d" % (win_num+1)]
+				cy = self.CentroidDataFrame.iloc[i]["centroid_y%d" % (win_num+1)]
+				draw_full.ellipse((cy,cx,cy,cx), outline=(255,0,0))
 
+			draw_full.text((28, 36), self.ImageDates[i].strftime("%m/%d/%Y %H:%M:%S"), fill=(255, 0, 0))
 
 		frame_one = frames[0]
 		frame_one.save(gif_path, format="GIF", append_images=frames,
 				save_all=True, duration=100, loop=0)
-
 
 	####
 	# Utility class functions:
@@ -402,6 +396,20 @@ class DoolCentroid:
 		# date string to datetime value
 		return dt.datetime.strptime(datestr,'%m-%d-%Y %H:%M:%S')
 
+	def DisplayWindows(self):
+		# ensure that class variables are populated correctly before continuing
+		if not self.CentroidWindowsReady():
+			print("Centroid windows are not ready. Have you run CreateWindows() class function?")
+			exit(1)
+
+		# display information about each of the windows
+		for win_num in range(len(self.CentroidWindows)):
+			x_start = self.CentroidWindows[win_num][0][0]
+			y_start = self.CentroidWindows[win_num][0][1]
+			x_size = self.CentroidWindows[win_num][1][0] - x_start
+			y_size = self.CentroidWindows[win_num][1][1] - y_start
+			print("window_%d: (x,y) = (%d, %d), (w,h) = (%d, %d)" % ((win_num+1), x_start, y_start, x_size, y_size))
+
 	def BackgroundReductionPlot(self, idx):
 		fig, ax = plt.subplots(1,3, sharex=True, sharey=True)
 
@@ -428,6 +436,7 @@ class DoolCentroid:
 			print("%s removed from analysis" % image_name_sm)
 
 	def ClearImages(self):
+		self.InitNumberImages = 0
 		self.ImagePaths = [] 
 		self.ImageDates = [] 
 		self.ImageArrays = []
