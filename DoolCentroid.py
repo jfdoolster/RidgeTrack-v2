@@ -158,7 +158,7 @@ class DoolCentroid:
 				if res == "n" or res == "N":
 					exit(0)
 
-	def CreateWindows(self, threshold=20, padding=0):
+	def CreateWindows(self, threshold=20, padding=5):
 		'''
 		Create subwindows around centroids for unbiased centroiding. 	
 		Image is thresholded and 'features' are found using scipy.ndimage functions
@@ -267,10 +267,8 @@ class DoolCentroid:
 		df["timestamp"] = self.ImageDates
 
 		for win_num in range(len(self.CentroidWindows)):
-			x0 = self.CentroidWindows[win_num][0][0]
-			y0 = self.CentroidWindows[win_num][0][1]
-			x1 = self.CentroidWindows[win_num][1][0]
-			y1 = self.CentroidWindows[win_num][1][1]
+			(x0,y0) = self.CentroidWindows[win_num][0]
+			(x1,y1) = self.CentroidWindows[win_num][1]
 
 			# initialize empty list for each of the window (reset each loop)
 			centroid_x, centroid_y = [], []
@@ -329,6 +327,15 @@ class DoolCentroid:
 
 
 	def CreateGifs(self, gif_path):
+		'''
+		create replay gifs for images and individual windows	
+		Must run LocateCentroid() class function first
+		'''
+
+		# ensure that class variables are populated correctly before continuing
+		if not self.CentroidDataReady():
+			print("Centroid data not ready. Have you run LocateCentroids() class function?")
+			return
 
 		# if given path is a directory, output gif is saved at 'gif_path/replay.gif'
 		if os.path.exists(gif_path) and os.path.isdir(gif_path):
@@ -336,13 +343,17 @@ class DoolCentroid:
 
 		# if gif_path exists, prompt user about overwritting it
 		if  os.path.exists(gif_path) and os.path.isfile(gif_path):
-			res = input("%s exists. Overwrite? [y]/n " % gif_path)
+			res = input("gifs already exist. Overwrite? [y]/n ")
 			if res == 'n' or res == 'N':
 				return
 
 		from PIL import Image, ImageDraw
 
-		frames = [Image.open(image) for image in self.ImagePaths]
+		#frames = [Image.open(image).convert("L") for image in self.ImagePaths]
+		#print(type(frames[0]))
+		frames = []
+		for image_array in self.ReducedImageArrays:
+			frames.append(Image.fromarray(image_array.astype('uint8')).convert("RGB"))
 
 		for i in range(len(frames)):
 			draw_full = ImageDraw.Draw(frames[i])
@@ -353,16 +364,28 @@ class DoolCentroid:
 				# PIL image coordinates are flipped from ndarray coordinates! (swap x and y)
 				draw_full.rectangle((x0,y0,x1,y1), outline=(255,0,0))
 
-				r=5
+				r=1
 				cx = self.CentroidDataFrame.iloc[i]["centroid_x%d" % (win_num+1)]
 				cy = self.CentroidDataFrame.iloc[i]["centroid_y%d" % (win_num+1)]
-				draw_full.ellipse((cx,cy,cx,cy), outline=(255,0,0))
+				draw_full.ellipse((cx-r,cy-r,cx+r,cy+r), fill=(255,0,0), outline=(255,0,0))
 
 			draw_full.text((28, 36), self.ImageDates[i].strftime("%m/%d/%Y %H:%M:%S"), fill=(255, 0, 0))
 
-		frame_one = frames[0]
-		frame_one.save(gif_path, format="GIF", append_images=frames,
+		full_frame_one = frames[0]
+		full_frame_one.save(gif_path, format="GIF", append_images=frames,
 				save_all=True, duration=100, loop=0)
+
+		for win_num in range(self.centroid_num):
+			window_frames = []
+			(x0,y0) = self.CentroidWindows[win_num][0]
+			(x1,y1) = self.CentroidWindows[win_num][1]
+			w,h = x1-x0, y1-y0
+			for frame in frames:
+				window_frames.append(frame.crop((x0,y0,x1+1,y1+1)).resize((w*10,h*10)))
+			window_frame_one = window_frames[0]
+			window_frame_one.save("%s-w%d.gif" % (gif_path[:-4], (win_num+1)), format="GIF", 
+				append_images=window_frames, save_all=True, duration=100, loop=0)
+
 
 	####
 	# Utility class functions:
