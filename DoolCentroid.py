@@ -6,7 +6,7 @@ import datetime as dt
 from scipy import ndimage
 import matplotlib.pyplot as plt
 
-class Centroid:
+class DoolCentroid:
 
 	def __init__(self, input_directory, reject_directory, centroid_num=2):
 		
@@ -237,13 +237,6 @@ class Centroid:
 			peak_windows[win_num][0] = (x0-padding, y0-padding)
 			peak_windows[win_num][1] = (x1+padding, y1+padding)
 
-		# display information about each of the windows
-		for win_num in range(len(peak_windows)):
-			x_start = peak_windows[win_num][0][0]
-			y_start = peak_windows[win_num][0][1]
-			x_size = peak_windows[win_num][1][0] - x_start
-			y_size = peak_windows[win_num][1][1] - y_start
-			print("window_%d: (x,y) = (%d, %d), (w,h) = (%d, %d)" % ((win_num+1), x_start, y_start, x_size, y_size))
 
 		# populate class variable for future class fucntions
 		self.CentroidWindows = peak_windows
@@ -327,6 +320,20 @@ class Centroid:
 		self.CentroidDataFrame.to_csv(csv_path, index_label='timestamp')
 		print("centroid data written to %s" % csv_path)
 
+	def DisplayWindows(self):
+		# ensure that class variables are populated correctly before continuing
+		if not self.CentroidWindowsReady():
+			print("Centroid windows are not ready. Have you run CreateWindows() class function?")
+			exit(1)
+
+		# display information about each of the windows
+		for win_num in range(len(self.CentroidWindows)):
+			x_start = self.CentroidWindows[win_num][0][0]
+			y_start = self.CentroidWindows[win_num][0][1]
+			x_size = self.CentroidWindows[win_num][1][0] - x_start
+			y_size = self.CentroidWindows[win_num][1][1] - y_start
+			print("window_%d: (x,y) = (%d, %d), (w,h) = (%d, %d)" % ((win_num+1), x_start, y_start, x_size, y_size))
+
 	def CreateGifs(self, gif_path):
 
 		# if given path is a directory, output gif is saved at 'gif_path/replay.gif'
@@ -407,6 +414,28 @@ class Centroid:
 		ax[2].set_title("Reduced Image")
 		plt.show()
 
+	def RejectSingleImage(self, idx, msg=None):
+		image_name_sm = self.ImagePaths[idx].split("/")[-1]
+		shutil.copy2(self.ImagePaths[idx], self.Reject)
+		self.ImagePaths.pop(idx)
+		self.ImageDates.pop(idx) 
+		self.ImageArrays.pop(idx)
+		self.BackgroundArrays.pop(idx)
+		self.ReducedImageArrays.pop(idx)
+		if type(msg) == str:
+			print("%s removed from analysis: %s" % (image_name_sm, msg))
+		else:
+			print("%s removed from analysis" % image_name_sm)
+
+	def ClearImages(self):
+		self.ImagePaths = [] 
+		self.ImageDates = [] 
+		self.ImageArrays = []
+		self.BackgroundArrays = []
+		self.ReducedImageArrays = []
+		self.CentroidWindows = []
+		self.CentroidDataFrame = pd.DataFrame()
+
 	###
 	# Boolean gate class functions
 	###
@@ -441,27 +470,6 @@ class Centroid:
 			return False
 		return True
 
-	def RejectSingleImage(self, idx, msg=None):
-		image_name_sm = self.ImagePaths[idx].split("/")[-1]
-		shutil.copy2(self.ImagePaths[idx], self.Reject)
-		self.ImagePaths.pop(idx)
-		self.ImageDates.pop(idx) 
-		self.ImageArrays.pop(idx)
-		self.BackgroundArrays.pop(idx)
-		self.ReducedImageArrays.pop(idx)
-		if type(msg) == str:
-			print("%s removed from analysis: %s" % (image_name_sm, msg))
-		else:
-			print("%s removed from analysis" % image_name_sm)
-
-	def ClearImages(self):
-		self.ImagePaths = [] 
-		self.ImageDates = [] 
-		self.ImageArrays = []
-		self.BackgroundArrays = []
-		self.ReducedImageArrays = []
-		self.CentroidWindows = []
-		self.CentroidDataFrame = pd.DataFrame()
 
 
 
