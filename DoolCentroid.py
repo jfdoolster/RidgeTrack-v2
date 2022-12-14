@@ -61,6 +61,7 @@ class DoolCentroid:
 		print("%d frames found in %s" % (len(self.ImagePaths), self.IN))
 
 		self.InitNumberImages = len(self.ImagePaths)
+		
 
 		for fname in self.ImagePaths:
 			image_date  = self.getFileDate(fname) # get date from filename 
