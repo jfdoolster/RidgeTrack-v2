@@ -8,14 +8,33 @@ if __name__ =="__main__":
     BAD = testdir + "/Reject/" 
     OUT = testdir + ""  # <-- add filename in quotes if desired
 
+    # instatansiate the class
+    # initial argments IN and BAD are required; 
+    # defualt centroid_num=2; changing this is untested December 22
     CENT = Centroid(input_directory = IN, reject_directory=BAD)
-    CENT.GetImages()
-    CENT.EstimateBackground()
-    CENT.CreateWindows()
-    CENT.LocateCentroids()
-    CENT.CreateDataCSV(csv_path = OUT)
 
-    CENT.CreateGifs(gif_path = OUT)
+    # images saved in input_directory stored to CENT.ImageArrays class variable 
+    # default image_color=0 is red. image_col=3 to average all RGB (unnessecary)
+    CENT.GetImages()
+
+    # estimate background using median filter. 
+    # estimates stored in CENT.BackgroundArrays class variable
+    # background reduced image arrays are stored in CENT.ReducedImageArrays
+    CENT.EstimateBackground(filter_size_pixels=45) 
+
+    # detect peaks on the reduced Images and calculate limits for centroid windows across all images
+    # default threshold=20. used for peak detection with ndimage NOT for centroid detection in other class functions
+    # default windows have padding=10 pixels. 
+    CENT.CreateWindows()
+
+    # locate center-of-mass centroids inside each window 
+    # timestamped centroids stored to CENT.CentroidDataFrame
+    CENT.LocateCentroids()
+
+    print(CENT.CentroidDataFrame)
+
+    CENT.CreateDataCSV(csv_path = OUT)  # save data frame to csv
+    CENT.CreateGifs(gif_path = OUT)     # create gif of images with windows
 
 
 

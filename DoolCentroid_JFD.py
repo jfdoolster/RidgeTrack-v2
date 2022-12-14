@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 class Centroid:
 
-	def __init__(self, input_directory, reject_directory, expected_centroid_num=2):
+	def __init__(self, input_directory, reject_directory, centroid_num=2):
 		
 		# first check if input paths exsist and are directories
 		if not os.path.exists(input_directory) or not os.path.isdir(input_directory):
@@ -21,7 +21,7 @@ class Centroid:
 		# set input paths as class variables
 		self.IN = input_directory
 		self.Reject = reject_directory 
-		self.centroid_num = expected_centroid_num
+		self.centroid_num = centroid_num
 
 		# initialize class variables for sharing between class functions
 		self.ImagePaths = []         # list of image path names
@@ -33,14 +33,18 @@ class Centroid:
 		self.CentroidWindows = []    # pixel window locations for centroiding ([x0, y0], [x1, y1])
 		self.CentroidDataFrame = pd.DataFrame() # pandas dataframe for streamlined data viewing 
 
+	###
+	# Image Processing Class Functions:
+	###
+
 	def GetImages(self, image_color=0):
 		'''
 		Populate ImagePaths, ImageDates, and ImageArrays class variables. 
 		Must run this class function first as other class functions require these class variables 
 		'''
 		# .jpgs are split into red/green/blue. Fire-i is monochrome so red=blue=green
-		if image_color not in [0, 1, 2]:
-			print("image color must be 0 (red), 1 (blue), or 2 (green)")
+		if image_color not in range(4):
+			print("image color must be 0 (red), 1 (blue), 2 (green), or 3 (averaged)")
 			exit(1)
 
 		self.ClearImages() # reset class variables to empty
@@ -55,7 +59,14 @@ class Centroid:
 			# get single color from jpg
 			# Fire-i is monochrome so red=blue=green
 			jpg_image = plt.imread(fname,'F')
+
 			image_array = jpg_image[:,:,image_color].astype('float64')
+
+			if image_color == 3:
+				for i in [1, 2]:
+					image_array += jpg_image[:,:,i].astype('float64')
+				image_array = image_array/3
+
 
 			# append to image array and date to class variables
 			self.ImageArrays.append(image_array)
@@ -185,6 +196,7 @@ class Centroid:
 				x1,y1  = x0+w, y0+h
 				
 				# initial window size added to list
+				# note that this
 				if i == 0:
 					peak_windows.append([(x0,y0),(x1,y1)])
 					continue
@@ -302,7 +314,6 @@ class Centroid:
 		Save dataframe as csv file
 		Must first run LocateCentroid() class function
 		'''
-
 		# if given path is a directory, output csv is saved at 'csv_path/centroids.csv'
 		if os.path.exists(csv_path) and os.path.isdir(csv_path):
 			csv_path = csv_path+"/centroids.csv"
@@ -311,11 +322,10 @@ class Centroid:
 		if  os.path.exists(csv_path) and os.path.isfile(csv_path):
 			res = input("%s exists. Overwrite? [y]/n" % csv_path)
 			if res == 'n' or res == 'N':
-				exit(0)
+				return
 		
 		self.CentroidDataFrame.to_csv(csv_path, index_label='timestamp')
 		print("centroid data written to %s" % csv_path)
-
 
 	def CreateGifs(self, gif_path):
 
@@ -327,18 +337,18 @@ class Centroid:
 		if  os.path.exists(gif_path) and os.path.isfile(gif_path):
 			res = input("%s exists. Overwrite? [y]/n" % gif_path)
 			if res == 'n' or res == 'N':
-				exit(0)
+				return
 
 		from PIL import Image, ImageDraw
 
 		frames = [Image.open(image) for image in self.ImagePaths]
+
+
 		for i in range(len(frames)):
 			draw = ImageDraw.Draw(frames[i])
 			for win_num in range(len(self.CentroidWindows)):
-				x0 = self.CentroidWindows[win_num][0][0]
-				y0 = self.CentroidWindows[win_num][0][1]
-				x1 = self.CentroidWindows[win_num][1][0]
-				y1 = self.CentroidWindows[win_num][1][1]
+				(x0,y0) = self.CentroidWindows[win_num][0]
+				(x1,y1) = self.CentroidWindows[win_num][1]
 
 				# PIL image coordinates are flipped from ndarray coordinates! (swap x and y)
 				draw.rectangle((y0,x0,y1,x1))
@@ -352,7 +362,7 @@ class Centroid:
 
 
 	####
-	# Utility functions:
+	# Utility class functions:
 	####
 
 	def centroid(self,I): # calculate centroid and error (<x> and sigma_<x>)
@@ -378,6 +388,13 @@ class Centroid:
 
 		return cx,cy,sigx,sigy
 
+	def getFileDate(self, filename):
+		NAME = filename.split('_') # split filename string
+		# create date string 
+		datestr = '{:s}-{:s}-{:s} {:s}:{:s}:{:s}'.format(NAME[3],NAME[2],NAME[4],NAME[5],NAME[6],NAME[7])
+		# date string to datetime value
+		return dt.datetime.strptime(datestr,'%m-%d-%Y %H:%M:%S')
+
 	def BackgroundReductionPlot(self, idx):
 		fig, ax = plt.subplots(1,3, sharex=True, sharey=True)
 
@@ -389,6 +406,17 @@ class Centroid:
 		ax[1].set_title("Background")
 		ax[2].set_title("Reduced Image")
 		plt.show()
+
+	###
+	# Boolean gate class functions
+	###
+
+	def CentroidDataReady(self):
+		if len(self.CentroidDataFrame) == 0:
+			return False
+		if len(self.ImagePaths) != len(self.CentroidDataFrame):
+			return False
+		return True
 
 	def CentroidWindowsReady(self):
 		if len(self.CentroidWindows) != self.centroid_num:
@@ -435,12 +463,6 @@ class Centroid:
 		self.CentroidWindows = []
 		self.CentroidDataFrame = pd.DataFrame()
 
-	def getFileDate(self, filename):
-		NAME = filename.split('_') # split filename string
-		# create date string 
-		datestr = '{:s}-{:s}-{:s} {:s}:{:s}:{:s}'.format(NAME[3],NAME[2],NAME[4],NAME[5],NAME[6],NAME[7])
-		# date string to datetime value
-		return dt.datetime.strptime(datestr,'%m-%d-%Y %H:%M:%S')
 
 
 
