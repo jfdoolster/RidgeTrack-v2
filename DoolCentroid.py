@@ -309,6 +309,11 @@ class DoolCentroid:
 		# populated CentroidDataFrame class variable using timestamps as index (legacy. matches OG RidgeTrack output)
 		self.CentroidDataFrame = df.set_index("timestamp")
 
+
+	###
+	# output dataframe and create gifs
+	###
+
 	def CreateDataCSV(self, path):
 		'''
 		Save dataframe as csv file
@@ -454,6 +459,8 @@ class DoolCentroid:
 		ax[0].set_title("Original")
 		ax[1].set_title("Background")
 		ax[2].set_title("Reduced Image")
+		for a in ax:
+			a.grid(True, alpha=0.25)
 		plt.show()
 
 	def SingleFramePlot(self, idx):

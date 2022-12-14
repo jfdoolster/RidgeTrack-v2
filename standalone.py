@@ -182,8 +182,9 @@ if __name__=="__main__":
 					filter_size_pixel = different 
 				'''
 
-			filter_size_pixels=40
+			# set true to view background plots
 			plot_prompt = False 
+			filter_size_pixels=40
 			# only estimate new background when needed (see above) to save processing time
 			if new_background:
 				print("(%d of %d): \033[1mEstimating background\033[0m of %s (size=%d px)..." % (i+1, len(ImageArrays), image_name_sm, filter_size_pixels))
