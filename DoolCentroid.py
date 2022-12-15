@@ -353,7 +353,7 @@ class DoolCentroid:
 		print("centroid data written to %s" % out_path)
 
 
-	def CreateGifs(self, out_path):
+	def CreateGifs(self, out_path, duration_ms=50):
 		'''
 		create replay gifs for images and individual windows	
 		Must run LocateCentroid() class function first
@@ -403,7 +403,7 @@ class DoolCentroid:
 
 		full_frame_one = frames[0]
 		full_frame_one.save(out_path, format="GIF", append_images=frames,
-				save_all=True, duration=100, loop=0)
+				save_all=True, duration=duration_ms, loop=0)
 		print("full dataset gif created at %s" % out_path)
 
 		for win_num in range(self.centroid_num):
@@ -419,7 +419,7 @@ class DoolCentroid:
 			window_out_path = "%s-w%d.gif" % (out_path[:-4], (win_num+1))
 			window_frame_one = window_frames[0]
 			window_frame_one.save(window_out_path, format="GIF", 
-				append_images=window_frames, save_all=True, duration=100, loop=0)
+				append_images=window_frames, save_all=True, duration=duration_ms, loop=0)
 			print("window %d gif created at %s" % ((win_num+1), window_out_path))
 
 
