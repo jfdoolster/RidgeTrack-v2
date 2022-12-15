@@ -411,11 +411,15 @@ class DoolCentroid:
 			(x0,y0) = self.CentroidWindows[win_num][0]
 			(x1,y1) = self.CentroidWindows[win_num][1]
 			w,h = x1-x0, y1-y0
+
 			iterable = trange(len(frames)) 
 			for i in iterable:
 				iterable.set_description("creating window %d gif" % (win_num+1))
 				# crop and resize the pil images. integer can be fixed by not using resize()
 				window_frames.append(frames[i].crop((x0,y0,x1+1,y1+1)).resize((w*10,h*10)))
+				draw_window = ImageDraw.Draw(window_frames[i])
+				draw_window.text((28, 36), self.ImageDates[i].strftime("%m/%d/%Y %H:%M:%S"), fill=(255, 0, 0))
+
 			window_out_path = "%s-w%d.gif" % (out_path[:-4], (win_num+1))
 			window_frame_one = window_frames[0]
 			window_frame_one.save(window_out_path, format="GIF", 
