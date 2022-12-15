@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 from scipy import ndimage
+from tqdm import tqdm, trange
 import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw
 
@@ -63,7 +64,9 @@ class DoolCentroid:
 		self.InitNumberImages = len(self.ImagePaths)
 		
 
-		for fname in self.ImagePaths:
+		iterable = tqdm(self.ImagePaths)
+		for fname in iterable:
+			iterable.set_description("processing frames")
 			image_date  = self.getFileDate(fname) # get date from filename 
 
 			# get single color from jpg
@@ -102,7 +105,8 @@ class DoolCentroid:
 		prev_mean = None
 		prev_std = None
 
-		for i in range(len(self.ImageArrays)):
+		iterable = range(len(self.ImageArrays))
+		for i in iterable:
 			new_background = False  # boolean date for estimating new background (reset each loop)
 			show_plots = False      # boolean gate for plotting image reduction steps (reset each loop)
 
@@ -127,7 +131,8 @@ class DoolCentroid:
 
 			# only estimate new background when needed (see above) to save processing time
 			if new_background:
-				print("(%d of %d): \033[1mEstimating background\033[0m of %s (size=%d px)..." % (i+1, len(self.ImageArrays), image_name_sm, filter_size_pixels))
+				print("(%d of %d): \033[1mestimating background\033[0m of %s (size=%d px)..." % (i+1, len(self.ImageArrays), image_name_sm, filter_size_pixels))
+				#iterable.set_description("\033[1mEstimating background\033[0m of %s (size=%d px)" % (i+1, len(self.ImageArrays), image_name_sm, filter_size_pixels))
 
 				# estimate background array with large median filter (>= twice centroid diameter of ~20px)
 				bg_array = ndimage.median_filter(image_array, size=filter_size_pixels)
@@ -139,7 +144,8 @@ class DoolCentroid:
 						show_plots = True
 
 			
-			print("(%d of %d): Removing Background from %s..." % (i+1, len(self.ImageArrays), image_name_sm,))
+			print("(%d of %d): removing background from %s..." % (i+1, len(self.ImageArrays), image_name_sm,))
+			#iterable.set_description("Removing Background from %s" % (i+1, len(self.ImageArrays), image_name_sm,))
 
 			# subtract background from image array. small median filter (3px) to remove spurious pixels 
 			reduced_image_array = ndimage.median_filter((image_array - bg_array), size=3)
@@ -177,9 +183,13 @@ class DoolCentroid:
 		# ensure window lists are empty before continuing
 		self.CentroidWindows = [] 
 		peak_windows = []
+		numpop = 0 # number of frames removed
 
-		for i in range(len(self.ReducedImageArrays)):
-			reduced_image_array = self.ReducedImageArrays[i]
+		iterable = trange(len(self.ReducedImageArrays)) 
+		for i in iterable:
+			iterable.set_description("creating %d windows" % (self.centroid_num))
+
+			reduced_image_array = self.ReducedImageArrays[i - numpop]
 
 			# all values below threshold (default=20 counts) set to zero
 			threshold_array = reduced_image_array
@@ -191,7 +201,8 @@ class DoolCentroid:
 			# ensure that the correct number of features are detected. 
 			if num != self.centroid_num:
 				# remove image from future processing, copy original file to 'Reject' direcotry, and alert user
-				self.RemoveSingleImage(i, "incorrect number of detected peaks (%d)" % num)
+				self.RejectSingleImage((i-numpop), "incorrect number of detected peaks (%d)" % num)
+				numpop += 1
 				continue
 
 			# only if correct num of features:
@@ -203,7 +214,7 @@ class DoolCentroid:
 
 				# determine window size for current feature 
 				x0,y0 = dx.start, dy.start
-				h,w = np.shape(self.ReducedImageArrays[i][p])
+				h,w = np.shape(self.ReducedImageArrays[(i-numpop)][p])
 				x1,y1  = x0+w, y0+h
 				
 				# initial window size added to list
@@ -220,21 +231,21 @@ class DoolCentroid:
 				# feature detection is not nessecarily consistant across images.
 				# the following loop ensures that feature1 and feature2 are not swapped by matching current x0 with closest previous x0
 				# if centroids are directly above one another (vertical line intercepts both on image) then change 'x0' variables to 'y0'
-				min_x_diff, idx = 999, None
+				min_x_diff, win_idx = 999, None
 				for w in range(len(peak_windows)):
 					prev_x0 = peak_windows[w][0][0]
 					dif = abs(x0 - prev_x0)
 					if dif < min_x_diff:
-						min_x_diff, idx = dif, w
+						min_x_diff, win_idx = dif, w
 				
 				# determine minimum x0,x0 and maximum x1,y1 so detected features accross all images are included in the each window area
-				win_x0 = min(x0, peak_windows[idx][0][0])
-				win_y0 = min(y0, peak_windows[idx][0][1])
-				win_x1 = max(x1, peak_windows[idx][1][0])
-				win_y1 = max(y1, peak_windows[idx][1][1])
+				win_x0 = min(x0, peak_windows[win_idx][0][0])
+				win_y0 = min(y0, peak_windows[win_idx][0][1])
+				win_x1 = max(x1, peak_windows[win_idx][1][0])
+				win_y1 = max(y1, peak_windows[win_idx][1][1])
 
 				# set window values to be used during the next loop
-				peak_windows[idx] = [(win_x0, win_y0),(win_x1, win_y1)]
+				peak_windows[win_idx] = [(win_x0, win_y0),(win_x1, win_y1)]
 
 		# sanity check (again)
 		if len(peak_windows) != self.centroid_num:
@@ -278,7 +289,9 @@ class DoolCentroid:
 			error_x, error_y = [], []
 
 			# loop through each REDUCED image array
-			for i in range(len(self.ReducedImageArrays)):
+			iterable = trange(len(self.ReducedImageArrays)) 
+			for i in iterable:
+				iterable.set_description("locating window %d centroids" % (win_num+1))
 
 				# extract pixels within current window
 				windowed_image_array = self.ReducedImageArrays[i][y0:y1,x0:x1]
@@ -370,7 +383,9 @@ class DoolCentroid:
 		for image_array in self.ReducedImageArrays:
 			frames.append(Image.fromarray(image_array.astype('uint8')).convert("RGB"))
 
-		for i in range(len(frames)):
+		iterable = trange(len(frames)) 
+		for i in iterable:
+			iterable.set_description("creating full-dataset gif")
 			draw_full = ImageDraw.Draw(frames[i])
 			for win_num in range(len(self.CentroidWindows)):
 				(x0,y0) = self.CentroidWindows[win_num][0]
@@ -396,8 +411,11 @@ class DoolCentroid:
 			(x0,y0) = self.CentroidWindows[win_num][0]
 			(x1,y1) = self.CentroidWindows[win_num][1]
 			w,h = x1-x0, y1-y0
-			for frame in frames:
-				window_frames.append(frame.crop((x0,y0,x1+1,y1+1)).resize((w*10,h*10)))
+			iterable = trange(len(frames)) 
+			for i in iterable:
+				iterable.set_description("creating window %d gif" % (win_num+1))
+				# crop and resize the pil images. integer can be fixed by not using resize()
+				window_frames.append(frames[i].crop((x0,y0,x1+1,y1+1)).resize((w*10,h*10)))
 			window_out_path = "%s-w%d.gif" % (out_path[:-4], (win_num+1))
 			window_frame_one = window_frames[0]
 			window_frame_one.save(window_out_path, format="GIF", 

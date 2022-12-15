@@ -8,11 +8,10 @@ from scipy import ndimage
 import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw
 
-
 testdir = "../20221103-DOOLEY"
 input_directory = testdir + "/IN/" 
 reject_directory  = testdir + "/Reject/" 
-OUT = testdir + ""  # <-- add filename in quotes if desired
+OUT = testdir + "/"  # <-- add filename in quotes if desired
 
 centroid_num = 2
 
@@ -41,8 +40,8 @@ def centroid(I): # calculate centroid and error (<x> and sigma_<x>)
 	h,w = np.shape(I)
 
 	# create evenly spaced vector for x and y (coordinate axis)
-	x   = np.arange(0,w)
-	y   = np.arange(0,h)
+	x = np.arange(0,w)
+	y = np.arange(0,h)
 
 	# get coordinate matrix from x and y
 	X,Y = np.meshgrid(x,y)
