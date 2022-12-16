@@ -22,7 +22,7 @@ if __name__ =="__main__":
 
     # detect peaks on the reduced Images and calculate limits for centroid windows across all images
     # default threshold=20. used for peak detection with ndimage NOT for centroid calculations in other class functions
-    # default windows have padding=10 pixels. 
+    # default windows have padding=5 pixels. 
     CENT.CreateWindows()
     CENT.DisplayWindows()
 

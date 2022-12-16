@@ -175,7 +175,7 @@ if __name__=="__main__":
 		Must first run GetImages() class function	
 		'''
 		filter_size_pixels=45
-		plot_prompt=True
+		plot_prompt=False
 
 		print("\nestimating backgrounds and reducing images...")
 
