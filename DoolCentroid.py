@@ -43,10 +43,6 @@ class DoolCentroid:
 	###
 
 	def GetImages(self, image_color=0):
-		'''
-		Populate ImagePaths, ImageDates, and ImageArrays class variables. 
-		Must run this class function first as other class functions require these class variables 
-		'''
 		# .jpgs are split into red/green/blue. Fire-i is monochrome so red=blue=green
 		if image_color not in range(4):
 			print("image color must be 0 (red), 1 (blue), 2 (green), or 3 (averaged)")
@@ -55,23 +51,42 @@ class DoolCentroid:
 		self.ClearImages() # reset class variables to empty
 
 		# get sorted list of filenames from 'IN' directory
-		if platform.system() == 'Windows':
-			self.ImagePaths = sorted(glob.glob(self.IN + "*.JPG"),key=os.path.getctime)
-		else:
-			self.ImagePaths = sorted(glob.glob(self.IN + "*.JPG"),key=os.path.getmtime)
-		print("%d frames found in %s" % (len(self.ImagePaths), self.IN))
+		image_paths = glob.glob(self.IN + "*.JPG")
 
-		self.InitNumberImages = len(self.ImagePaths)
-		
+		df = pd.DataFrame()
+		progbar = tqdm(image_paths, leave=False)
+		for fpath in progbar:
+			progbar.set_description("sorting frames")
+			image_date  = self.getFileDate(fpath) # get date from filename 
+			df = df.append(pd.DataFrame({'fpath': fpath}, index=[image_date]))
+		df = df.sort_index()
 
-		iterable = tqdm(self.ImagePaths)
-		for fname in iterable:
-			iterable.set_description("processing frames")
-			image_date  = self.getFileDate(fname) # get date from filename 
+		self.ImagePaths = df['fpath']
+		self.ImageDates = df.index
+
+		start_str = df.index[0].strftime("%Y-%m-%d %H:%M:%S.%f")
+		end_str   = df.index[-1].strftime("%Y-%m-%d %H:%M:%S.%f")
+		hours = (df.index[-1] - df.index[0]).total_seconds()/3600
+
+		print()
+		print("%-12s %s" % ("directory:", self.IN))
+		print("%-12s %s" % ("frames:", len(self.ImagePaths)))
+		print("%-12s %s" % ("start:", start_str))
+		print("%-12s %s" % ("end:", end_str))
+		print("%-12s %.2f hours" % ("duration:", hours))
+
+		print("\ncreating image arrays...")
+
+		progbar = tqdm(range(len(self.ImagePaths)), leave=True)
+		for i in progbar:
+			image_date    = self.ImageDates[i]
+			image_path    = self.ImagePaths[i]
+			image_path_sm = self.ImagePaths[i].split("/")[-1] # path w/out directory prefix 
+			progbar.set_description(image_path_sm)
 
 			# get single color from jpg
 			# Fire-i is monochrome so red=blue=green
-			jpg_image = plt.imread(fname,'F')
+			jpg_image = plt.imread(image_path,'F')
 
 			image_array = jpg_image[:,:,image_color].astype('float64')
 
@@ -80,10 +95,8 @@ class DoolCentroid:
 					image_array += jpg_image[:,:,i].astype('float64')
 				image_array = image_array/3
 
-
 			# append to image array and date to class variables
 			self.ImageArrays.append(image_array)
-			self.ImageDates.append(image_date)	
 
 	def EstimateBackground(self, filter_size_pixels=45, plot_prompt=True):
 		'''
@@ -97,6 +110,8 @@ class DoolCentroid:
 			print("Images are not ready. Have you run GetImages() class function?")
 			exit(1)
 
+		print("\nestimating backgrounds and reducing images...")
+
 		# initialize background and reduced image arrays with the same shape as the image arrays
 		image_size = self.ImageArrays[0].shape
 		bg_array = np.zeros(image_size)
@@ -105,8 +120,8 @@ class DoolCentroid:
 		prev_mean = None
 		prev_std = None
 
-		iterable = range(len(self.ImageArrays))
-		for i in iterable:
+		progbar = tqdm(range(len(self.ImageArrays)), leave=True) 
+		for i in progbar:
 			new_background = False  # boolean date for estimating new background (reset each loop)
 			show_plots = False      # boolean gate for plotting image reduction steps (reset each loop)
 
@@ -118,6 +133,7 @@ class DoolCentroid:
 			std = np.std(image_array)
 
 			if prev_mean == None:     # true only for first loop. 
+				progbar.clear()
 				new_background = True # must estimate initial background.
 
 			elif (mean < prev_mean-prev_std) or (mean > prev_mean+prev_std): 
@@ -132,7 +148,6 @@ class DoolCentroid:
 			# only estimate new background when needed (see above) to save processing time
 			if new_background:
 				print("(%d of %d): \033[1mestimating background\033[0m of %s (size=%d px)..." % (i+1, len(self.ImageArrays), image_name_sm, filter_size_pixels))
-				#iterable.set_description("\033[1mEstimating background\033[0m of %s (size=%d px)" % (i+1, len(self.ImageArrays), image_name_sm, filter_size_pixels))
 
 				# estimate background array with large median filter (>= twice centroid diameter of ~20px)
 				bg_array = ndimage.median_filter(image_array, size=filter_size_pixels)
@@ -144,8 +159,8 @@ class DoolCentroid:
 						show_plots = True
 
 			
-			print("(%d of %d): removing background from %s..." % (i+1, len(self.ImageArrays), image_name_sm,))
-			#iterable.set_description("Removing Background from %s" % (i+1, len(self.ImageArrays), image_name_sm,))
+			#print("(%d of %d): removing background from %s..." % (i+1, len(self.ImageArrays), image_name_sm,))
+			progbar.set_description("%s" % (image_name_sm,))
 
 			# subtract background from image array. small median filter (3px) to remove spurious pixels 
 			reduced_image_array = ndimage.median_filter((image_array - bg_array), size=3)
@@ -185,11 +200,16 @@ class DoolCentroid:
 		peak_windows = []
 		numpop = 0 # number of frames removed
 
-		iterable = trange(len(self.ReducedImageArrays)) 
-		for i in iterable:
-			iterable.set_description("creating %d windows" % (self.centroid_num))
+		print("\ncreating %d windows" % (self.centroid_num))
 
-			reduced_image_array = self.ReducedImageArrays[i - numpop]
+		progbar = tqdm(range(len(self.ReducedImageArrays)), leave=True)
+		for i in progbar:
+			image_name_sm = self.ImagePaths[i].split("/")[-1] # file name without directory prefix 
+			progbar.set_description("%s" % (image_name_sm))
+
+			idx = i-numpop # current image accounts for num images dropped (pop'd)
+
+			reduced_image_array = self.ReducedImageArrays[idx]
 
 			# all values below threshold (default=20 counts) set to zero
 			threshold_array = reduced_image_array
@@ -201,7 +221,7 @@ class DoolCentroid:
 			# ensure that the correct number of features are detected. 
 			if num != self.centroid_num:
 				# remove image from future processing, copy original file to 'Reject' direcotry, and alert user
-				self.RejectSingleImage((i-numpop), "incorrect number of detected peaks (%d)" % num)
+				self.RejectSingleImage((idx), "incorrect number of detected peaks (%d)" % num)
 				numpop += 1
 				continue
 
@@ -214,7 +234,7 @@ class DoolCentroid:
 
 				# determine window size for current feature 
 				x0,y0 = dx.start, dy.start
-				h,w = np.shape(self.ReducedImageArrays[(i-numpop)][p])
+				h,w = np.shape(self.ReducedImageArrays[idx][p])
 				x1,y1  = x0+w, y0+h
 				
 				# initial window size added to list
@@ -274,9 +294,11 @@ class DoolCentroid:
 			print("Centroid windows are not ready. Have you run CreateWindows() class function?")
 			exit(1)
 
+
+		print()
+
 		# initialize empty dataframe
 		df = pd.DataFrame()
-
 		# add timestamps column to dataframe
 		df["timestamp"] = self.ImageDates
 
@@ -288,16 +310,16 @@ class DoolCentroid:
 			centroid_x, centroid_y = [], []
 			error_x, error_y = [], []
 
+			print("calculating window %d centroids..." % (win_num+1))
+
 			# loop through each REDUCED image array
-			iterable = trange(len(self.ReducedImageArrays)) 
-			for i in iterable:
-				iterable.set_description("locating window %d centroids" % (win_num+1))
+			progbar = tqdm(range(len(self.ReducedImageArrays)), leave=True)
+			for i in progbar:
+				image_name_sm = self.ImagePaths[i].split("/")[-1] # file name without directory prefix 
+				progbar.set_description("%s" % (image_name_sm))
 
 				# extract pixels within current window
 				windowed_image_array = self.ReducedImageArrays[i][y0:y1,x0:x1]
-				#plt.figure()
-				#plt.imshow(windowed_image_array)
-				#plt.show()
 
 				# calculate the center-of-mass centorid for each extracted window array (and error)
 				# output centroids are in the windowed coordinate system 
@@ -323,7 +345,6 @@ class DoolCentroid:
 		# populated CentroidDataFrame class variable using timestamps as index (legacy. matches OG RidgeTrack output)
 		self.CentroidDataFrame = df.set_index("timestamp")
 
-
 	###
 	# output dataframe and create gifs
 	###
@@ -333,6 +354,14 @@ class DoolCentroid:
 		Save dataframe as csv file
 		Must first run LocateCentroid() class function
 		'''
+
+		# ensure that class variables are populated correctly before continuing
+		if not self.CentroidDataReady():
+			print("Centroid data not ready. Have you run LocateCentroids() class function?")
+			return
+
+		print("\ncreating centroid csv file...")
+
 		# if given path is a directory, output csv is saved at 'path/centroids.csv'
 		if os.path.exists(out_path) and os.path.isdir(out_path):
 			out_path = out_path+"/centroids.csv"
@@ -363,6 +392,8 @@ class DoolCentroid:
 		if not self.CentroidDataReady():
 			print("Centroid data not ready. Have you run LocateCentroids() class function?")
 			return
+		
+		print("\ncreating centroid gif files...")
 
 		# if given path is a directory, output gif is saved at 'path/replay.gif'
 		if os.path.exists(out_path) and os.path.isdir(out_path):
@@ -383,9 +414,9 @@ class DoolCentroid:
 		for image_array in self.ReducedImageArrays:
 			frames.append(Image.fromarray(image_array.astype('uint8')).convert("RGB"))
 
-		iterable = trange(len(frames)) 
-		for i in iterable:
-			iterable.set_description("creating full-dataset gif")
+		progbar = tqdm(range(len(frames)), leave=False)
+		for i in progbar:
+			progbar.set_description("creating full-dataset gif")
 			draw_full = ImageDraw.Draw(frames[i])
 			for win_num in range(len(self.CentroidWindows)):
 				(x0,y0) = self.CentroidWindows[win_num][0]
@@ -399,7 +430,7 @@ class DoolCentroid:
 				cy = self.CentroidDataFrame.iloc[i]["centroid_y%d" % (win_num+1)]
 				draw_full.ellipse((cx-r,cy-r,cx+r,cy+r), fill=(255,0,0), outline=(255,0,0))
 
-			draw_full.text((28, 36), self.ImageDates[i].strftime("%m/%d/%Y %H:%M:%S"), fill=(255, 0, 0))
+			draw_full.text((28, 36), self.ImageDates[i].strftime("%m-%d-%Y %H:%M:%S"), fill=(255, 0, 0))
 
 		full_frame_one = frames[0]
 		full_frame_one.save(out_path, format="GIF", append_images=frames,
@@ -412,13 +443,13 @@ class DoolCentroid:
 			(x1,y1) = self.CentroidWindows[win_num][1]
 			w,h = x1-x0, y1-y0
 
-			iterable = trange(len(frames)) 
-			for i in iterable:
-				iterable.set_description("creating window %d gif" % (win_num+1))
+			progbar = tqdm(range(len(frames)), leave=False)
+			for i in progbar:
+				progbar.set_description("creating window %d gif" % (win_num+1))
 				# crop and resize the pil images. integer can be fixed by not using resize()
 				window_frames.append(frames[i].crop((x0,y0,x1+1,y1+1)).resize((w*10,h*10)))
 				draw_window = ImageDraw.Draw(window_frames[i])
-				draw_window.text((28, 36), self.ImageDates[i].strftime("%m/%d/%Y %H:%M:%S"), fill=(255, 0, 0))
+				draw_window.text((28, 36), self.ImageDates[i].strftime("%m-%d-%Y %H:%M:%S"), fill=(255, 0, 0))
 
 			window_out_path = "%s-w%d.gif" % (out_path[:-4], (win_num+1))
 			window_frame_one = window_frames[0]
@@ -456,10 +487,17 @@ class DoolCentroid:
 
 	def getFileDate(self, filename):
 		NAME = filename.split('_') # split filename string
+		year = NAME[4]
+		month = NAME[3]
+		day  = NAME[2]
+		hour = NAME[5] 
+		minute = NAME[6] 
+		second = NAME[7] 
+		millisec = NAME[8].split(".")[0] 
 		# create date string 
-		datestr = '{:s}-{:s}-{:s} {:s}:{:s}:{:s}'.format(NAME[3],NAME[2],NAME[4],NAME[5],NAME[6],NAME[7])
+		datestr = '{:s}-{:s}-{:s} {:s}:{:s}:{:s}.{:s}'.format(year, month, day, hour, minute, second, millisec)
 		# date string to datetime value
-		return dt.datetime.strptime(datestr,'%m-%d-%Y %H:%M:%S')
+		return dt.datetime.strptime(datestr,'%Y-%m-%d %H:%M:%S.%f')
 
 	def DisplayWindows(self):
 		# ensure that class variables are populated correctly before continuing
@@ -467,6 +505,7 @@ class DoolCentroid:
 			print("Centroid windows are not ready. Have you run CreateWindows() class function?")
 			exit(1)
 
+		print()
 		# display information about each of the windows
 		for win_num in range(len(self.CentroidWindows)):
 			x_start = self.CentroidWindows[win_num][0][0]

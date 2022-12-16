@@ -60,10 +60,17 @@ def centroid(I): # calculate centroid and error (<x> and sigma_<x>)
 
 def getFileDate(filename):
 	NAME = filename.split('_') # split filename string
+	year = NAME[4]
+	month = NAME[3]
+	day  = NAME[2]
+	hour = NAME[5] 
+	minute = NAME[6] 
+	second = NAME[7] 
+	millisec = NAME[8].split(".")[0] 
 	# create date string 
-	datestr = '{:s}-{:s}-{:s} {:s}:{:s}:{:s}'.format(NAME[3],NAME[2],NAME[4],NAME[5],NAME[6],NAME[7])
+	datestr = '{:s}-{:s}-{:s} {:s}:{:s}:{:s}.{:s}'.format(year, month, day, hour, minute, second, millisec)
 	# date string to datetime value
-	return dt.datetime.strptime(datestr,'%m-%d-%Y %H:%M:%S')
+	return dt.datetime.strptime(datestr,'%Y-%m-%d %H:%M:%S.%f')
 
 def DisplayWindows():
 
@@ -113,23 +120,42 @@ if __name__=="__main__":
 		# .jpgs are split into red/green/blue. Fire-i is monochrome so red=blue=green
 		image_color = 0
 		# get sorted list of filenames from 'IN' directory
-		if platform.system() == 'Windows':
-			ImagePaths = sorted(glob.glob(IN + "*.JPG"),key=os.path.getctime)
-		else:
-			ImagePaths = sorted(glob.glob(IN + "*.JPG"),key=os.path.getmtime)
-		print("%d frames found in %s" % (len(ImagePaths), IN))
+		image_paths = glob.glob(IN + "*.JPG")
 
-		InitNumberImages = len(ImagePaths)
-		
+		df = pd.DataFrame()
+		progbar = tqdm(image_paths, leave=False)
+		for fpath in progbar:
+			progbar.set_description("sorting frames")
+			image_date  = getFileDate(fpath) # get date from filename 
+			df = df.append(pd.DataFrame({'fpath': fpath}, index=[image_date]))
+		df = df.sort_index()
 
-		iterable = tqdm(ImagePaths)
-		for fname in iterable:
-			iterable.set_description("processing frames")
-			image_date  = getFileDate(fname) # get date from filename 
+		ImagePaths = df['fpath']
+		ImageDates = df.index
+
+		start_str = df.index[0].strftime("%Y-%m-%d %H:%M:%S.%f")
+		end_str   = df.index[-1].strftime("%Y-%m-%d %H:%M:%S.%f")
+		hours = (df.index[-1] - df.index[0]).total_seconds()/3600
+
+		print()
+		print("%-12s %s" % ("directory:", IN))
+		print("%-12s %s" % ("frames:", len(ImagePaths)))
+		print("%-12s %s" % ("start:", start_str))
+		print("%-12s %s" % ("end:", end_str))
+		print("%-12s %.2f hours" % ("duration:", hours))
+
+		print("\ncreating image arrays...")
+
+		progbar = tqdm(range(len(ImagePaths)), leave=True)
+		for i in progbar:
+			image_date    = ImageDates[i]
+			image_path    = ImagePaths[i]
+			image_path_sm = ImagePaths[i].split("/")[-1] # path w/out directory prefix 
+			progbar.set_description(image_path_sm)
 
 			# get single color from jpg
 			# Fire-i is monochrome so red=blue=green
-			jpg_image = plt.imread(fname,'F')
+			jpg_image = plt.imread(image_path,'F')
 
 			image_array = jpg_image[:,:,image_color].astype('float64')
 
@@ -138,16 +164,18 @@ if __name__=="__main__":
 					image_array += jpg_image[:,:,i].astype('float64')
 				image_array = image_array/3
 
-
 			# append to image array and date to class variables
 			ImageArrays.append(image_array)
-			ImageDates.append(image_date)	
 
 		'''
 		Estimate background for images using large median filter.
 		Populate BackgroundArrays and ReducedImageArrays class variables.
 		Must first run GetImages() class function	
 		'''
+
+		print("\nestimating backgrounds and reducing images...")
+		filter_size_pixels=40
+		plot_prompt=False
 
 		# initialize background and reduced image arrays with the same shape as the image arrays
 		image_size = ImageArrays[0].shape
@@ -157,8 +185,8 @@ if __name__=="__main__":
 		prev_mean = None
 		prev_std = None
 
-		iterable = range(len(ImageArrays))
-		for i in iterable:
+		progbar = tqdm(range(len(ImageArrays)), leave=True) 
+		for i in progbar:
 			new_background = False  # boolean date for estimating new background (reset each loop)
 			show_plots = False      # boolean gate for plotting image reduction steps (reset each loop)
 
@@ -170,6 +198,7 @@ if __name__=="__main__":
 			std = np.std(image_array)
 
 			if prev_mean == None:     # true only for first loop. 
+				progbar.clear()
 				new_background = True # must estimate initial background.
 
 			elif (mean < prev_mean-prev_std) or (mean > prev_mean+prev_std): 
@@ -181,12 +210,9 @@ if __name__=="__main__":
 					filter_size_pixel = different 
 				'''
 
-			filter_size_pixels=40
-			plot_prompt=False
 			# only estimate new background when needed (see above) to save processing time
 			if new_background:
 				print("(%d of %d): \033[1mestimating background\033[0m of %s (size=%d px)..." % (i+1, len(ImageArrays), image_name_sm, filter_size_pixels))
-				#iterable.set_description("\033[1mEstimating background\033[0m of %s (size=%d px)" % (i+1, len(ImageArrays), image_name_sm, filter_size_pixels))
 
 				# estimate background array with large median filter (>= twice centroid diameter of ~20px)
 				bg_array = ndimage.median_filter(image_array, size=filter_size_pixels)
@@ -198,8 +224,8 @@ if __name__=="__main__":
 						show_plots = True
 
 			
-			print("(%d of %d): removing background from %s..." % (i+1, len(ImageArrays), image_name_sm,))
-			#iterable.set_description("Removing Background from %s" % (i+1, len(ImageArrays), image_name_sm,))
+			#print("(%d of %d): removing background from %s..." % (i+1, len(ImageArrays), image_name_sm,))
+			progbar.set_description("%s" % (image_name_sm,))
 
 			# subtract background from image array. small median filter (3px) to remove spurious pixels 
 			reduced_image_array = ndimage.median_filter((image_array - bg_array), size=3)
@@ -228,17 +254,22 @@ if __name__=="__main__":
 		Must first run GetImages() and EstimateBackground() class functions
 		'''
 
-		threshold=20
 		# ensure window lists are empty before continuing
 		CentroidWindows = [] 
 		peak_windows = []
 		numpop = 0 # number of frames removed
 
-		iterable = trange(len(ReducedImageArrays)) 
-		for i in iterable:
-			iterable.set_description("creating %d windows" % (centroid_num))
+		print("\ncreating %d windows" % (centroid_num))
+		threshold = 20
 
-			reduced_image_array = ReducedImageArrays[i - numpop]
+		progbar = tqdm(range(len(ReducedImageArrays)), leave=True)
+		for i in progbar:
+			image_name_sm = ImagePaths[i].split("/")[-1] # file name without directory prefix 
+			progbar.set_description("%s" % (image_name_sm))
+
+			idx = i-numpop # current image accounts for num images dropped (pop'd)
+
+			reduced_image_array = ReducedImageArrays[idx]
 
 			# all values below threshold (default=20 counts) set to zero
 			threshold_array = reduced_image_array
@@ -250,15 +281,14 @@ if __name__=="__main__":
 			# ensure that the correct number of features are detected. 
 			if num != centroid_num:
 				# remove image from future processing, copy original file to 'Reject' direcotry, and alert user
-				msg = "incorrect number of detected peaks (%d)" % num
-
-				image_name_sm = ImagePaths[(i-numpop)].split("/")[-1]
-				shutil.copy2(ImagePaths[(i-numpop)], Reject)
-				ImagePaths.pop((i-numpop))
-				ImageDates.pop((i-numpop)) 
-				ImageArrays.pop((i-numpop))
-				BackgroundArrays.pop((i-numpop))
-				ReducedImageArrays.pop((i-numpop))
+				msg = "incorrect number of detected peaks (%d)"
+				image_name_sm = ImagePaths[idx].split("/")[-1]
+				shutil.copy2(ImagePaths[idx], Reject)
+				ImagePaths.pop(idx)
+				ImageDates.pop(idx) 
+				ImageArrays.pop(idx)
+				BackgroundArrays.pop(idx)
+				ReducedImageArrays.pop(idx)
 				if type(msg) == str:
 					print("%s removed from analysis: %s" % (image_name_sm, msg))
 				else:
@@ -275,7 +305,7 @@ if __name__=="__main__":
 
 				# determine window size for current feature 
 				x0,y0 = dx.start, dy.start
-				h,w = np.shape(ReducedImageArrays[(i-numpop)][p])
+				h,w = np.shape(ReducedImageArrays[idx][p])
 				x1,y1  = x0+w, y0+h
 				
 				# initial window size added to list
@@ -330,9 +360,10 @@ if __name__=="__main__":
 		Must first run CreateWindows() class function
 		'''
 
+		print()
+
 		# initialize empty dataframe
 		df = pd.DataFrame()
-
 		# add timestamps column to dataframe
 		df["timestamp"] = ImageDates
 
@@ -344,16 +375,16 @@ if __name__=="__main__":
 			centroid_x, centroid_y = [], []
 			error_x, error_y = [], []
 
+			print("calculating window %d centroids..." % (win_num+1))
+
 			# loop through each REDUCED image array
-			iterable = trange(len(ReducedImageArrays)) 
-			for i in iterable:
-				iterable.set_description("locating window %d centroids" % (win_num+1))
+			progbar = tqdm(range(len(ReducedImageArrays)), leave=True)
+			for i in progbar:
+				image_name_sm = ImagePaths[i].split("/")[-1] # file name without directory prefix 
+				progbar.set_description("%s" % (image_name_sm))
 
 				# extract pixels within current window
 				windowed_image_array = ReducedImageArrays[i][y0:y1,x0:x1]
-				#plt.figure()
-				#plt.imshow(windowed_image_array)
-				#plt.show()
 
 				# calculate the center-of-mass centorid for each extracted window array (and error)
 				# output centroids are in the windowed coordinate system 
@@ -380,11 +411,14 @@ if __name__=="__main__":
 		CentroidDataFrame = df.set_index("timestamp")
 
 
-		out_path=OUT
 		'''
 		Save dataframe as csv file
 		Must first run LocateCentroid() class function
 		'''
+
+		print("\ncreating centroid csv file...")
+		out_path = OUT + "/standalone-centroids.csv"
+
 		# if given path is a directory, output csv is saved at 'path/centroids.csv'
 		if os.path.exists(out_path) and os.path.isdir(out_path):
 			out_path = out_path+"/centroids.csv"
@@ -409,9 +443,11 @@ if __name__=="__main__":
 		create replay gifs for images and individual windows	
 		Must run LocateCentroid() class function first
 		'''
+		
+		print("\ncreating centroid gif files...")
+		out_path = OUT + "/standalone-replay.gif"
+		duration_ms=50 # ms
 
-		out_path=OUT
-		duration_ms=50
 		# if given path is a directory, output gif is saved at 'path/replay.gif'
 		if os.path.exists(out_path) and os.path.isdir(out_path):
 			out_path = out_path+"/replay.gif"
@@ -431,9 +467,9 @@ if __name__=="__main__":
 		for image_array in ReducedImageArrays:
 			frames.append(Image.fromarray(image_array.astype('uint8')).convert("RGB"))
 
-		iterable = trange(len(frames)) 
-		for i in iterable:
-			iterable.set_description("creating full dataset gif")
+		progbar = tqdm(range(len(frames)), leave=False)
+		for i in progbar:
+			progbar.set_description("creating full-dataset gif")
 			draw_full = ImageDraw.Draw(frames[i])
 			for win_num in range(len(CentroidWindows)):
 				(x0,y0) = CentroidWindows[win_num][0]
@@ -447,7 +483,7 @@ if __name__=="__main__":
 				cy = CentroidDataFrame.iloc[i]["centroid_y%d" % (win_num+1)]
 				draw_full.ellipse((cx-r,cy-r,cx+r,cy+r), fill=(255,0,0), outline=(255,0,0))
 
-			draw_full.text((28, 36), ImageDates[i].strftime("%m/%d/%Y %H:%M:%S"), fill=(255, 0, 0))
+			draw_full.text((28, 36), ImageDates[i].strftime("%m-%d-%Y %H:%M:%S"), fill=(255, 0, 0))
 
 		full_frame_one = frames[0]
 		full_frame_one.save(out_path, format="GIF", append_images=frames,
@@ -460,13 +496,13 @@ if __name__=="__main__":
 			(x1,y1) = CentroidWindows[win_num][1]
 			w,h = x1-x0, y1-y0
 
-			iterable = trange(len(frames)) 
-			for i in iterable:
-				iterable.set_description("creating window %d gif" % (win_num+1))
+			progbar = tqdm(range(len(frames)), leave=False)
+			for i in progbar:
+				progbar.set_description("creating window %d gif" % (win_num+1))
 				# crop and resize the pil images. integer can be fixed by not using resize()
 				window_frames.append(frames[i].crop((x0,y0,x1+1,y1+1)).resize((w*10,h*10)))
 				draw_window = ImageDraw.Draw(window_frames[i])
-				draw_window.text((28, 36), ImageDates[i].strftime("%m/%d/%Y %H:%M:%S"), fill=(255, 0, 0))
+				draw_window.text((28, 36), ImageDates[i].strftime("%m-%d-%Y %H:%M:%S"), fill=(255, 0, 0))
 
 			window_out_path = "%s-w%d.gif" % (out_path[:-4], (win_num+1))
 			window_frame_one = window_frames[0]
