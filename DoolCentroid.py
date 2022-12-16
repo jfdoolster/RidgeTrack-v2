@@ -605,10 +605,3 @@ class DoolCentroid:
 		if len(self.ImagePaths) != len(self.ImageArrays): 
 			return False
 		return True
-
-
-
-
-
-	
-
