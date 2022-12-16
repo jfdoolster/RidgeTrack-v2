@@ -29,6 +29,7 @@ class DoolCentroid:
 
 		# initialize class variables for sharing between class functions
 		self.InitNumberImages = 0
+		self.InitNumberRejected = 0
 		self.ImagePaths = []         # list of image path names
 		self.ImageDates = []         # list of image timestamps (from path names)
 		self.ImageArrays = []        # list of 2D arrays for each images (default: red) 
@@ -50,7 +51,7 @@ class DoolCentroid:
 
 		self.ClearImages() # reset class variables to empty
 
-		# get sorted list of filenames from 'IN' directory
+		# get list of filenames from 'IN' directory
 		image_paths = glob.glob(self.IN + "*.JPG")
 
 		df = pd.DataFrame()
@@ -63,6 +64,7 @@ class DoolCentroid:
 
 		self.ImagePaths = df['fpath']
 		self.ImageDates = df.index
+		self.InitNumberImages = len(self.ImagePaths)
 
 		start_str = df.index[0].strftime("%Y-%m-%d %H:%M:%S.%f")
 		end_str   = df.index[-1].strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -198,18 +200,16 @@ class DoolCentroid:
 		# ensure window lists are empty before continuing
 		self.CentroidWindows = [] 
 		peak_windows = []
-		numpop = 0 # number of frames removed
+		reject_frame_indices = []
 
-		print("\ncreating %d windows" % (self.centroid_num))
+		print("\ncreating %d windows..." % (self.centroid_num))
 
 		progbar = tqdm(range(len(self.ReducedImageArrays)), leave=True)
 		for i in progbar:
 			image_name_sm = self.ImagePaths[i].split("/")[-1] # file name without directory prefix 
 			progbar.set_description("%s" % (image_name_sm))
 
-			idx = i-numpop # current image accounts for num images dropped (pop'd)
-
-			reduced_image_array = self.ReducedImageArrays[idx]
+			reduced_image_array = self.ReducedImageArrays[i]
 
 			# all values below threshold (default=20 counts) set to zero
 			threshold_array = reduced_image_array
@@ -220,9 +220,9 @@ class DoolCentroid:
 
 			# ensure that the correct number of features are detected. 
 			if num != self.centroid_num:
-				# remove image from future processing, copy original file to 'Reject' direcotry, and alert user
-				self.RejectSingleImage((idx), "incorrect number of detected peaks (%d)" % num)
-				numpop += 1
+				msg = "%s rejected: %d features detected" % (image_name_sm, num)
+				reject_frame_indices.append((i,msg))
+				self.InitNumberRejected += 1
 				continue
 
 			# only if correct num of features:
@@ -234,7 +234,7 @@ class DoolCentroid:
 
 				# determine window size for current feature 
 				x0,y0 = dx.start, dy.start
-				h,w = np.shape(self.ReducedImageArrays[idx][p])
+				h,w = np.shape(self.ReducedImageArrays[i][p])
 				x1,y1  = x0+w, y0+h
 				
 				# initial window size added to list
@@ -278,9 +278,27 @@ class DoolCentroid:
 			peak_windows[win_num][0] = (x0-padding, y0-padding)
 			peak_windows[win_num][1] = (x1+padding, y1+padding)
 
-
 		# populate class variable for future class fucntions
 		self.CentroidWindows = peak_windows
+
+		# loop through images with incorecct centroids
+		# must be done in reverse so indexes dont change each loop!
+		for idx_msg_tuple in sorted(reject_frame_indices, reverse=True):
+			(idx, msg) = idx_msg_tuple
+			reject_path = self.ImagePaths.pop(idx)
+			shutil.copy2(reject_path, self.Reject)
+			del self.ImageDates[idx]
+			del self.ImageArrays[idx]
+			del self.BackgroundArrays[idx]
+			del self.ReducedImageArrays[idx]
+			print(msg)
+
+		# sanity check of array sizes!
+		if len(self.ReducedImageArrays) != (self.InitNumberImages - self.InitNumberRejected):
+			print("Error: reduced images array is unexpected size (should not happen!?!)")
+		if not self.ImagesReady() or not self.ReducedImagesReady(): 
+			print("Error: arrays are not compatible sizes (should not happen!?!)")
+		
 
 	def LocateCentroids(self):
 		'''
@@ -543,21 +561,9 @@ class DoolCentroid:
 		for win_num in range(self.centroid_num):
 			ax.plot(self.CentroidDataFrame["centroid_x%d" % (win_num+1)][idx], self.CentroidDataFrame["centroid_y%d" % (win_num+1)][idx],'r.')
 
-	def RejectSingleImage(self, idx, msg=None):
-		image_name_sm = self.ImagePaths[idx].split("/")[-1]
-		shutil.copy2(self.ImagePaths[idx], self.Reject)
-		self.ImagePaths.pop(idx)
-		self.ImageDates.pop(idx) 
-		self.ImageArrays.pop(idx)
-		self.BackgroundArrays.pop(idx)
-		self.ReducedImageArrays.pop(idx)
-		if type(msg) == str:
-			print("%s removed from analysis: %s" % (image_name_sm, msg))
-		else:
-			print("%s removed from analysis" % image_name_sm)
-
 	def ClearImages(self):
 		self.InitNumberImages = 0
+		self.InitNumberRejected = 0
 		self.ImagePaths = [] 
 		self.ImageDates = [] 
 		self.ImageArrays = []

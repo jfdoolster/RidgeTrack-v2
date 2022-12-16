@@ -22,6 +22,8 @@ Reject = reject_directory
 centroid_num = centroid_num
 
 # initialize class variables for sharing between class functions
+InitNumberImages = 0    # initial number of frames
+InitNumberRejected = 0  # counter for rejected frames
 ImagePaths = []         # list of image path names
 ImageDates = []         # list of image timestamps (from path names)
 ImageArrays = []        # list of 2D arrays for each images (default: red) 
@@ -119,7 +121,7 @@ if __name__=="__main__":
 		'''
 		# .jpgs are split into red/green/blue. Fire-i is monochrome so red=blue=green
 		image_color = 0
-		# get sorted list of filenames from 'IN' directory
+		# get list of filenames from 'IN' directory
 		image_paths = glob.glob(IN + "*.JPG")
 
 		df = pd.DataFrame()
@@ -132,6 +134,7 @@ if __name__=="__main__":
 
 		ImagePaths = df['fpath']
 		ImageDates = df.index
+		InitNumberImages = len(ImagePaths)
 
 		start_str = df.index[0].strftime("%Y-%m-%d %H:%M:%S.%f")
 		end_str   = df.index[-1].strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -172,10 +175,10 @@ if __name__=="__main__":
 		Populate BackgroundArrays and ReducedImageArrays class variables.
 		Must first run GetImages() class function	
 		'''
+		filter_size_pixels=45
+		plot_prompt=True
 
 		print("\nestimating backgrounds and reducing images...")
-		filter_size_pixels=40
-		plot_prompt=False
 
 		# initialize background and reduced image arrays with the same shape as the image arrays
 		image_size = ImageArrays[0].shape
@@ -254,22 +257,22 @@ if __name__=="__main__":
 		Must first run GetImages() and EstimateBackground() class functions
 		'''
 
+		threshold=20
+		padding=5
+
 		# ensure window lists are empty before continuing
 		CentroidWindows = [] 
 		peak_windows = []
-		numpop = 0 # number of frames removed
+		reject_frame_indices = []
 
-		print("\ncreating %d windows" % (centroid_num))
-		threshold = 20
+		print("\ncreating %d windows..." % (centroid_num))
 
 		progbar = tqdm(range(len(ReducedImageArrays)), leave=True)
 		for i in progbar:
 			image_name_sm = ImagePaths[i].split("/")[-1] # file name without directory prefix 
 			progbar.set_description("%s" % (image_name_sm))
 
-			idx = i-numpop # current image accounts for num images dropped (pop'd)
-
-			reduced_image_array = ReducedImageArrays[idx]
+			reduced_image_array = ReducedImageArrays[i]
 
 			# all values below threshold (default=20 counts) set to zero
 			threshold_array = reduced_image_array
@@ -280,20 +283,9 @@ if __name__=="__main__":
 
 			# ensure that the correct number of features are detected. 
 			if num != centroid_num:
-				# remove image from future processing, copy original file to 'Reject' direcotry, and alert user
-				msg = "incorrect number of detected peaks (%d)"
-				image_name_sm = ImagePaths[idx].split("/")[-1]
-				shutil.copy2(ImagePaths[idx], Reject)
-				ImagePaths.pop(idx)
-				ImageDates.pop(idx) 
-				ImageArrays.pop(idx)
-				BackgroundArrays.pop(idx)
-				ReducedImageArrays.pop(idx)
-				if type(msg) == str:
-					print("%s removed from analysis: %s" % (image_name_sm, msg))
-				else:
-					print("%s removed from analysis" % image_name_sm)
-				numpop += 1
+				msg = "%s rejected: %d features detected" % (image_name_sm, num)
+				reject_frame_indices.append((i,msg))
+				InitNumberRejected += 1
 				continue
 
 			# only if correct num of features:
@@ -305,7 +297,7 @@ if __name__=="__main__":
 
 				# determine window size for current feature 
 				x0,y0 = dx.start, dy.start
-				h,w = np.shape(ReducedImageArrays[idx][p])
+				h,w = np.shape(ReducedImageArrays[i][p])
 				x1,y1  = x0+w, y0+h
 				
 				# initial window size added to list
@@ -343,16 +335,31 @@ if __name__=="__main__":
 			print("Error: Too many windows!?! (should not happen)")
 			exit(1)
 
-		padding = 5
 		for win_num in range(len(peak_windows)):
 			(x0,y0) = peak_windows[win_num][0]
 			(x1,y1) = peak_windows[win_num][1]
 			peak_windows[win_num][0] = (x0-padding, y0-padding)
 			peak_windows[win_num][1] = (x1+padding, y1+padding)
 
-
 		# populate class variable for future class fucntions
 		CentroidWindows = peak_windows
+
+		# loop through images with incorecct centroids
+		# must be done in reverse so indexes dont change each loop!
+		for idx_msg_tuple in sorted(reject_frame_indices, reverse=True):
+			(idx, msg) = idx_msg_tuple
+			reject_path = ImagePaths.pop(idx)
+			shutil.copy2(reject_path, Reject)
+			del ImageDates[idx]
+			del ImageArrays[idx]
+			del BackgroundArrays[idx]
+			del ReducedImageArrays[idx]
+			print(msg)
+
+		# sanity check of array sizes!
+		if len(ReducedImageArrays) != (InitNumberImages - InitNumberRejected):
+			print("Error: reduced images array is unexpected size (should not happen!?!)")
+		
 
 		'''
 		Locate center-of-mass centroids using windows calculated in CreateWindows class function.
@@ -410,14 +417,18 @@ if __name__=="__main__":
 		# populated CentroidDataFrame class variable using timestamps as index (legacy. matches OG RidgeTrack output)
 		CentroidDataFrame = df.set_index("timestamp")
 
+	###
+	# output dataframe and create gifs
+	###
 
 		'''
 		Save dataframe as csv file
 		Must first run LocateCentroid() class function
 		'''
 
-		print("\ncreating centroid csv file...")
 		out_path = OUT + "/standalone-centroids.csv"
+
+		print("\ncreating centroid csv file...")
 
 		# if given path is a directory, output csv is saved at 'path/centroids.csv'
 		if os.path.exists(out_path) and os.path.isdir(out_path):
@@ -443,10 +454,10 @@ if __name__=="__main__":
 		create replay gifs for images and individual windows	
 		Must run LocateCentroid() class function first
 		'''
-		
+		out_path = OUT + "standalone-replay.gif"
+		duration_ms = 50
+
 		print("\ncreating centroid gif files...")
-		out_path = OUT + "/standalone-replay.gif"
-		duration_ms=50 # ms
 
 		# if given path is a directory, output gif is saved at 'path/replay.gif'
 		if os.path.exists(out_path) and os.path.isdir(out_path):
