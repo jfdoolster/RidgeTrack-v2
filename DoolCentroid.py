@@ -1,11 +1,10 @@
 import shutil
 import os, glob
-import platform
 import numpy as np
 import pandas as pd
 import datetime as dt
+from tqdm import tqdm
 from scipy import ndimage
-from tqdm import tqdm, trange
 import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw
 
