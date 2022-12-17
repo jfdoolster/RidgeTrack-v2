@@ -220,7 +220,8 @@ class DoolCentroid:
 			# ensure that the correct number of features are detected. 
 			if num != self.centroid_num:
 				msg = "%s rejected: %d features detected" % (image_name_sm, num)
-				reject_frame_indices.append((i,msg))
+				reject_frame_indices.append(i)
+				print(msg)
 				self.InitNumberRejected += 1
 				continue
 
@@ -280,17 +281,19 @@ class DoolCentroid:
 		# populate class variable for future class fucntions
 		self.CentroidWindows = peak_windows
 
+		print(reject_frame_indices)
+		print(reject_frame_indices)
+
 		# loop through images with incorecct centroids
 		# must be done in reverse so indexes dont change each loop!
-		for idx_msg_tuple in sorted(reject_frame_indices, reverse=True):
-			(idx, msg) = idx_msg_tuple
-			reject_path = self.ImagePaths.pop(idx)
-			shutil.copy2(reject_path, self.Reject)
+		for idx in sorted(reject_frame_indices, reverse=True):
+			shutil.copy2(self.ImagePaths[idx], self.Reject)
+		for idx in sorted(reject_frame_indices, reverse=True):
+			del self.ImagePaths[idx]
 			del self.ImageDates[idx]
 			del self.ImageArrays[idx]
 			del self.BackgroundArrays[idx]
 			del self.ReducedImageArrays[idx]
-			print(msg)
 
 		# sanity check of array sizes!
 		if len(self.ReducedImageArrays) != (self.InitNumberImages - self.InitNumberRejected):
