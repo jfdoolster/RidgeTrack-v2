@@ -281,24 +281,12 @@ class DoolCentroid:
 		# populate class variable for future class fucntions
 		self.CentroidWindows = peak_windows
 
-<<<<<<< HEAD
 		print(reject_frame_indices)
-		print(reject_frame_indices)
-=======
->>>>>>> 1031ff8106a0cddea94f18f651fb99451a356cc7
 
 		# loop through images with incorecct centroids
 		# must be done in reverse so indexes dont change each loop!
 		for idx in sorted(reject_frame_indices, reverse=True):
 			shutil.copy2(self.ImagePaths[idx], self.Reject)
-<<<<<<< HEAD
-		for idx in sorted(reject_frame_indices, reverse=True):
-			del self.ImagePaths[idx]
-			del self.ImageDates[idx]
-			del self.ImageArrays[idx]
-			del self.BackgroundArrays[idx]
-			del self.ReducedImageArrays[idx]
-=======
 		
 		for idx in sorted(reject_frame_indices, reverse=True):
 			self.ImagePaths = self.ImagePaths[:idx] + self.ImagePaths[idx+1:]
@@ -306,7 +294,6 @@ class DoolCentroid:
 			self.ImageArrays = self.ImageArrays[:idx] + self.ImageArrays[idx+1:]
 			self.BackgroundArrays = self.BackgroundArrays[:idx] + self.ImageArrays[idx+1:]
 			self.ReducedImageArrays = self.ReducedImageArrays[:idx] + self.ImageArrays[idx+1:]
->>>>>>> 1031ff8106a0cddea94f18f651fb99451a356cc7
 
 		# sanity check of array sizes!
 		if len(self.ReducedImageArrays) != (self.InitNumberImages - self.InitNumberRejected):
