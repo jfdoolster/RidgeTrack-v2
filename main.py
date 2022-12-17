@@ -2,7 +2,8 @@ import matplotlib.pyplot as plt
 from DoolCentroid import DoolCentroid
 
 if __name__ =="__main__":
-    testdir = "C:/Users/dooley/Documents/brsSpot/stability/20220927-testing/"
+    #testdir = "C:/Users/dooley/Documents/brsSpot/stability/20220927-testing/"
+    testdir = "C:/Users/dooley/Desktop/DOOLEY-20220927/"
     IN = testdir + "/IN/" 
     BAD = testdir + "/Reject/" 
     OUT = testdir + "/"  # <-- add filename in quotes if desired
