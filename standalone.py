@@ -283,7 +283,8 @@ if __name__=="__main__":
 			# ensure that the correct number of features are detected. 
 			if num != centroid_num:
 				msg = "%s rejected: %d features detected" % (image_name_sm, num)
-				reject_frame_indices.append((i,msg))
+				reject_frame_indices.append(i)
+				print(msg)
 				InitNumberRejected += 1
 				continue
 
@@ -345,15 +346,15 @@ if __name__=="__main__":
 
 		# loop through images with incorecct centroids
 		# must be done in reverse so indexes dont change each loop!
-		for idx_msg_tuple in sorted(reject_frame_indices, reverse=True):
-			(idx, msg) = idx_msg_tuple
-			reject_path = ImagePaths.pop(idx)
-			shutil.copy2(reject_path, Reject)
-			del ImageDates[idx]
-			del ImageArrays[idx]
-			del BackgroundArrays[idx]
-			del ReducedImageArrays[idx]
-			print(msg)
+		for idx in sorted(reject_frame_indices, reverse=True):
+			shutil.copy2(ImagePaths[idx], Reject)
+		
+		for idx in sorted(reject_frame_indices, reverse=True):
+			ImagePaths = ImagePaths[:idx] + ImagePaths[idx+1:]
+			ImageDates = ImageDates[:idx] + ImageDates[idx+1:]
+			ImageArrays = ImageArrays[:idx] + ImageArrays[idx+1:]
+			BackgroundArrays = BackgroundArrays[:idx] + ImageArrays[idx+1:]
+			ReducedImageArrays = ReducedImageArrays[:idx] + ImageArrays[idx+1:]
 
 		# sanity check of array sizes!
 		if len(ReducedImageArrays) != (InitNumberImages - InitNumberRejected):
