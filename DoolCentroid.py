@@ -58,7 +58,7 @@ class DoolCentroid:
 		for fpath in progbar:
 			progbar.set_description("sorting frames")
 			image_date  = self.getFileDate(fpath) # get date from filename 
-			df = df.append(pd.DataFrame({'fpath': fpath}, index=[image_date]))
+			df = pd.concat([df, pd.DataFrame({'fpath': fpath}, index=[image_date])])
 		df = df.sort_index()
 
 		self.ImagePaths = df['fpath']
@@ -288,12 +288,11 @@ class DoolCentroid:
 		for idx in sorted(reject_frame_indices, reverse=True):
 			shutil.copy2(self.ImagePaths[idx], self.Reject)
 		
-		for idx in sorted(reject_frame_indices, reverse=True):
-			self.ImagePaths = self.ImagePaths[:idx] + self.ImagePaths[idx+1:]
-			self.ImageDates = self.ImageDates[:idx] + self.ImageDates[idx+1:]
-			self.ImageArrays = self.ImageArrays[:idx] + self.ImageArrays[idx+1:]
-			self.BackgroundArrays = self.BackgroundArrays[:idx] + self.ImageArrays[idx+1:]
-			self.ReducedImageArrays = self.ReducedImageArrays[:idx] + self.ImageArrays[idx+1:]
+		self.ImagePaths = [i for j, i in enumerate(self.ImagePaths) if j not in reject_frame_indices]
+		self.ImageDates = [i for j, i in enumerate(self.ImageDates) if j not in reject_frame_indices]
+		self.ImageArrays = [i for j, i in enumerate(self.ImageArrays) if j not in reject_frame_indices]
+		self.BackgroundArrays = [i for j, i in enumerate(self.BackgroundArrays) if j not in reject_frame_indices]
+		self.ReducedImageArrays = [i for j, i in enumerate(self.ReducedImageArrays) if j not in reject_frame_indices]
 
 		# sanity check of array sizes!
 		if len(self.ReducedImageArrays) != (self.InitNumberImages - self.InitNumberRejected):

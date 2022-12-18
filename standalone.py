@@ -8,7 +8,7 @@ from scipy import ndimage
 import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw
 
-testdir = "C:/Users/dooley/Documents/brsSpot/stability/20220927-testing/"
+testdir = "C:/Users/jdooley/Documents/brsSpot/stability/20220927-testing/"
 input_directory = testdir + "/IN/" 
 reject_directory  = testdir + "/Reject/" 
 OUT = testdir + "/"  # <-- add filename in quotes if desired
