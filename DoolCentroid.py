@@ -11,20 +11,29 @@ from PIL import Image, ImageDraw
 
 class DoolCentroid:
 
-	def __init__(self, input_directory, reject_directory, centroid_num=2):
+	def __init__(self, directory, centroid_num=2, input_dirname="IN",  reject_dirname="Reject"):
 		
+		self.directory = os.path.normpath(directory)
+		self.centroid_num = centroid_num
+
 		# first check if input paths exsist and are directories
-		if not os.path.exists(input_directory) or not os.path.isdir(input_directory):
-			print("`input_directory` path does not exist or is not a directory (%s)" % input_directory)
-			exit(1)
-		if not os.path.exists(reject_directory) or not os.path.isdir(reject_directory):
-			print("`reject_directory` path does not exist or is not a directory" % reject_directory)
+		if not os.path.exists(self.directory) or not os.path.isdir(self.directory):
+			print("%s does not exist or is not a directory" % self.directory)
 			exit(1)
 
 		# set input paths as class variables
-		self.IN = input_directory
-		self.Reject = reject_directory 
-		self.centroid_num = centroid_num
+		self.input_directory = os.path.join(self.directory, input_dirname) 
+		self.reject_directory = os.path.join(self.directory, reject_dirname)
+
+		if not os.path.exists(self.input_directory) or not os.path.isdir(self.input_directory):
+			print("%s does not exist or is not a directory" % self.input_directory)
+			exit(1)
+
+		if not os.path.exists(self.reject_directory) or not os.path.isdir(self.reject_directory):
+			res = input("%s does not exist or is not a directory. create? [y]/n " % self.reject_directory)
+			if res == "n" or res == "N":
+				exit(0)
+			os.mkdir(self.reject_directory)
 
 		# initialize class variables for sharing between class functions
 		self.InitNumberImages = 0
@@ -51,7 +60,11 @@ class DoolCentroid:
 		self.ClearImages() # reset class variables to empty
 
 		# get list of filenames from 'IN' directory
-		image_paths = glob.glob(self.IN + "*.JPG")
+		wildcard_jpgs_str = os.path.join(self.input_directory,"*.JPG")
+		image_paths = glob.glob(wildcard_jpgs_str)
+		if len(image_paths) == 0:
+			print("No *.JPG files found in %s" % wildcard_jpgs_str)
+			exit(0)
 
 		df = pd.DataFrame()
 		progbar = tqdm(image_paths, leave=False)
@@ -70,7 +83,7 @@ class DoolCentroid:
 		hours = (df.index[-1] - df.index[0]).total_seconds()/3600
 
 		print()
-		print("%-12s %s" % ("directory:", self.IN))
+		print("%-12s %s" % ("directory:", self.input_directory))
 		print("%-12s %s" % ("frames:", len(self.ImagePaths)))
 		print("%-12s %s" % ("start:", start_str))
 		print("%-12s %s" % ("end:", end_str))
@@ -82,8 +95,9 @@ class DoolCentroid:
 		for i in progbar:
 			image_date    = self.ImageDates[i]
 			image_path    = self.ImagePaths[i]
-			image_path_sm = self.ImagePaths[i].split("/")[-1] # path w/out directory prefix 
-			progbar.set_description(image_path_sm)
+			#image_name_sm = self.ImagePaths[i].split("/")[-1] # path w/out directory prefix 
+			image_name_sm = os.path.basename(self.ImagePaths[i]) # path w/out directory prefix 
+			progbar.set_description(image_name_sm)
 
 			# get single color from jpg
 			# Fire-i is monochrome so red=blue=green
@@ -127,7 +141,8 @@ class DoolCentroid:
 			show_plots = False      # boolean gate for plotting image reduction steps (reset each loop)
 
 			image_array = self.ImageArrays[i]
-			image_name_sm = self.ImagePaths[i].split("/")[-1] # file name without directory prefix 
+			#image_name_sm = self.ImagePaths[i].split("/")[-1] # file name without directory prefix 
+			image_name_sm = os.path.basename(self.ImagePaths[i]) # path w/out directory prefix 
 
 			# simple stats for each image array
 			mean = np.mean(image_array)
@@ -205,7 +220,8 @@ class DoolCentroid:
 
 		progbar = tqdm(range(len(self.ReducedImageArrays)), leave=True)
 		for i in progbar:
-			image_name_sm = self.ImagePaths[i].split("/")[-1] # file name without directory prefix 
+			#image_name_sm = self.ImagePaths[i].split("/")[-1] # file name without directory prefix 
+			image_name_sm = os.path.basename(self.ImagePaths[i]) # path w/out directory prefix 
 			progbar.set_description("%s" % (image_name_sm))
 
 			reduced_image_array = self.ReducedImageArrays[i]
@@ -281,12 +297,10 @@ class DoolCentroid:
 		# populate class variable for future class fucntions
 		self.CentroidWindows = peak_windows
 
-		print(reject_frame_indices)
-
 		# loop through images with incorecct centroids
 		# must be done in reverse so indexes dont change each loop!
 		for idx in sorted(reject_frame_indices, reverse=True):
-			shutil.copy2(self.ImagePaths[idx], self.Reject)
+			shutil.copy2(self.ImagePaths[idx], self.reject_directory)
 		
 		self.ImagePaths = [i for j, i in enumerate(self.ImagePaths) if j not in reject_frame_indices]
 		self.ImageDates = [i for j, i in enumerate(self.ImageDates) if j not in reject_frame_indices]
@@ -334,7 +348,8 @@ class DoolCentroid:
 			# loop through each REDUCED image array
 			progbar = tqdm(range(len(self.ReducedImageArrays)), leave=True)
 			for i in progbar:
-				image_name_sm = self.ImagePaths[i].split("/")[-1] # file name without directory prefix 
+				#image_name_sm = self.ImagePaths[i].split("/")[-1] # file name without directory prefix 
+				image_name_sm = os.path.basename(self.ImagePaths[i]) # path w/out directory prefix 
 				progbar.set_description("%s" % (image_name_sm))
 
 				# extract pixels within current window
@@ -368,7 +383,7 @@ class DoolCentroid:
 	# output dataframe and create gifs
 	###
 
-	def CreateDataCSV(self, out_path):
+	def CreateDataCSV(self, csv_path="centroids.csv"):
 		'''
 		Save dataframe as csv file
 		Must first run LocateCentroid() class function
@@ -381,27 +396,28 @@ class DoolCentroid:
 
 		print("\ncreating centroid csv file...")
 
-		# if given path is a directory, output csv is saved at 'path/centroids.csv'
-		if os.path.exists(out_path) and os.path.isdir(out_path):
-			out_path = out_path+"/centroids.csv"
+		out_path = os.path.join(self.directory, csv_path)
+		file_split = os.path.splitext(out_path)
+		if file_split[-1] != ".csv":
+			out_path = "%s.csv" % file_split[0]
 
-		# if path exists, prompt user about overwritting it
-		if os.path.exists(out_path) and os.path.isfile(out_path):
-			res = input("%s exists. Overwrite? [y]/n " % out_path)
-			if res == 'n' or res == 'N':
-				return
 
 		# ensure file extension is .csv
 		if out_path[-4:] != ".csv":
 			print("out_path argument must be a directory or filename ending in '.csv'")
 			exit(1)
 
+		# if path exists, prompt user about overwritting it
+		if os.path.exists(out_path) and os.path.isfile(out_path):
+			res = input("%s exists. Overwrite? [y]/n " % out_path)
+			if res == 'n' or res == 'N':
+				return
 		
 		self.CentroidDataFrame.to_csv(out_path, index_label='timestamp')
 		print("centroid data written to %s" % out_path)
 
 
-	def CreateGifs(self, out_path, duration_ms=50):
+	def CreateGifs(self, gif_path="replay.gif", duration_ms=50):
 		'''
 		create replay gifs for images and individual windows	
 		Must run LocateCentroid() class function first
@@ -414,20 +430,16 @@ class DoolCentroid:
 		
 		print("\ncreating centroid gif files...")
 
-		# if given path is a directory, output gif is saved at 'path/replay.gif'
-		if os.path.exists(out_path) and os.path.isdir(out_path):
-			out_path = out_path+"/replay.gif"
+		out_path = os.path.join(self.directory, gif_path)
+		file_split = os.path.splitext(out_path)
+		if file_split[-1] != ".gif":
+			out_path = "%s.gif" % file_split[0]
 
 		# if path exists, prompt user about overwritting it
 		if  os.path.exists(out_path) and os.path.isfile(out_path):
 			res = input("gifs already exist. Overwrite? [y]/n ")
 			if res == 'n' or res == 'N':
 				return
-
-		# ensure file extension is .gif
-		if out_path[-4:] != ".gif":
-			print("out_path argument must be a directory or filename ending in '.gif'")
-			exit(1)
 
 		frames = []
 		for image_array in self.ReducedImageArrays:
@@ -470,7 +482,9 @@ class DoolCentroid:
 				draw_window = ImageDraw.Draw(window_frames[i])
 				draw_window.text((28, 36), self.ImageDates[i].strftime("%m-%d-%Y %H:%M:%S"), fill=(255, 0, 0))
 
-			window_out_path = "%s-w%d.gif" % (out_path[:-4], (win_num+1))
+
+			file_split = os.path.splitext(out_path)
+			window_out_path = "%s-w%d.gif" % (file_split[0], (win_num+1))
 			window_frame_one = window_frames[0]
 			window_frame_one.save(window_out_path, format="GIF", 
 				append_images=window_frames, save_all=True, duration=duration_ms, loop=0)

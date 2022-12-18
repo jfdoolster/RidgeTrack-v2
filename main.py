@@ -1,16 +1,17 @@
+import argparse,os
 import matplotlib.pyplot as plt
 from DoolCentroid import DoolCentroid
 
 if __name__ =="__main__":
-    #testdir = "C:/Users/dooley/Documents/brsSpot/stability/20220927-testing/"
-    testdir = "C:/Users/jdooley/Desktop/DOOLEY-20220927/"
-    IN = testdir + "/IN/" 
-    BAD = testdir + "/Reject/" 
-    OUT = testdir + "/"  # <-- add filename in quotes if desired
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-d', '--directory', required=True, type=str,
+        help='path to test directory containing IN/ and Reject/ directories')
+    args = parser.parse_args()
+    argdict = vars(args)
 
     # instatansiate the class. initial argments IN and BAD are required; 
     # defualt centroid_num=2; changing this is untested December 22
-    CENT = DoolCentroid(input_directory = IN, reject_directory=BAD)
+    CENT = DoolCentroid(directory=argdict["directory"])
 
     # images saved in input_directory stored to CENT.ImageArrays class variable 
     # default image_color=0 is red. image_col=3 to average all RGB (unnessecary)
@@ -33,5 +34,5 @@ if __name__ =="__main__":
 
     print(CENT.CentroidDataFrame)
 
-    CENT.CreateDataCSV(out_path = OUT)  # save data frame to csv
-    CENT.CreateGifs(out_path = OUT)     # create gif of images with windows
+    CENT.CreateDataCSV()  # save data frame to csv
+    CENT.CreateGifs()     # create gif of images with windows

@@ -8,7 +8,8 @@ from scipy import ndimage
 import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw
 
-testdir = "C:/Users/jdooley/Documents/brsSpot/stability/20220927-testing/"
+#testdir = "C:/Users/jdooley/Documents/brsSpot/stability/20220927-testing/"
+testdir = "C:/Users/jdooley/Desktop/DOOLEY-20220927/"
 input_directory = testdir + "/IN/" 
 reject_directory  = testdir + "/Reject/" 
 OUT = testdir + "/"  # <-- add filename in quotes if desired
@@ -128,7 +129,7 @@ if __name__=="__main__":
 		for fpath in progbar:
 			progbar.set_description("sorting frames")
 			image_date  = getFileDate(fpath) # get date from filename 
-			df = df.append(pd.DataFrame({'fpath': fpath}, index=[image_date]))
+			df = pd.concat([df, pd.DataFrame({'fpath': fpath}, index=[image_date])])
 		df = df.sort_index()
 
 		ImagePaths = df['fpath']
@@ -349,12 +350,11 @@ if __name__=="__main__":
 		for idx in sorted(reject_frame_indices, reverse=True):
 			shutil.copy2(ImagePaths[idx], Reject)
 		
-		for idx in sorted(reject_frame_indices, reverse=True):
-			ImagePaths = ImagePaths[:idx] + ImagePaths[idx+1:]
-			ImageDates = ImageDates[:idx] + ImageDates[idx+1:]
-			ImageArrays = ImageArrays[:idx] + ImageArrays[idx+1:]
-			BackgroundArrays = BackgroundArrays[:idx] + ImageArrays[idx+1:]
-			ReducedImageArrays = ReducedImageArrays[:idx] + ImageArrays[idx+1:]
+		ImagePaths = [i for j, i in enumerate(ImagePaths) if j not in reject_frame_indices]
+		ImageDates = [i for j, i in enumerate(ImageDates) if j not in reject_frame_indices]
+		ImageArrays = [i for j, i in enumerate(ImageArrays) if j not in reject_frame_indices]
+		BackgroundArrays = [i for j, i in enumerate(BackgroundArrays) if j not in reject_frame_indices]
+		ReducedImageArrays = [i for j, i in enumerate(ReducedImageArrays) if j not in reject_frame_indices]
 
 		# sanity check of array sizes!
 		if len(ReducedImageArrays) != (InitNumberImages - InitNumberRejected):
