@@ -479,7 +479,7 @@ class DoolCentroid:
 
 			progbar = tqdm(range(len(frames)), leave=False)
 			for i in progbar:
-				progbar.set_description("annotating window %d images for gif")
+				progbar.set_description("annotating window %d images for gif" % (win_num+1))
 				# crop and resize the pil images. integer can be fixed by not using resize()
 				window_frames.append(frames[i].crop((x0,y0,x1+1,y1+1)).resize((w*10,h*10)))
 				draw_window = ImageDraw.Draw(window_frames[i])
