@@ -40,8 +40,8 @@ class DoolCentroid:
 		self.InitNumberRejected = 0
 		self.ImagePaths = []         # list of image path names
 		self.ImageDates = []         # list of image timestamps (from path names)
-		self.ImageArrays = []        # list of 2D arrays for each images (default: red) 
-		self.BackgroundArrays = []   # list of 2D background arrays (estimated)
+		#self.ImageArrays = []        # list of 2D arrays for each images (default: red) 
+		#self.BackgroundArrays = []   # list of 2D background arrays (estimated)
 		self.ReducedImageArrays = [] # list of 2D reduced images arrays (ImageArrays[i] - BackgroundArrays[i])
 
 		self.CentroidWindows = []    # pixel window locations for centroiding ([x0, y0], [x1, y1])
@@ -89,59 +89,68 @@ class DoolCentroid:
 		print("%-12s %s" % ("end:", end_str))
 		print("%-12s %.2f hours" % ("duration:", hours))
 
-		print("\ncreating image arrays...")
 
-		progbar = tqdm(range(len(self.ImagePaths)), leave=True)
-		for i in progbar:
-			image_date    = self.ImageDates[i]
-			image_path    = self.ImagePaths[i]
-			#image_name_sm = self.ImagePaths[i].split("/")[-1] # path w/out directory prefix 
-			image_name_sm = os.path.basename(self.ImagePaths[i]) # path w/out directory prefix 
-			progbar.set_description(image_name_sm)
+		#progbar = tqdm(range(len(self.ImagePaths)), leave=True)
+		#for i in progbar:
+		#	image_date    = self.ImageDates[i]
+		#	image_path    = self.ImagePaths[i]
+		#	#image_name_sm = self.ImagePaths[i].split("/")[-1] # path w/out directory prefix 
+		#	image_name_sm = os.path.basename(self.ImagePaths[i]) # path w/out directory prefix 
+		#	progbar.set_description(image_name_sm)
 
-			# get single color from jpg
-			# Fire-i is monochrome so red=blue=green
-			jpg_image = plt.imread(image_path,'F')
+		#	# get single color from jpg
+		#	# Fire-i is monochrome so red=blue=green
+		#	jpg_image = plt.imread(image_path,'F')
 
-			image_array = jpg_image[:,:,image_color].astype('float64')
+		#	image_array = jpg_image[:,:,image_color].astype('float64')
 
-			if image_color == 3:
-				for i in [1, 2]:
-					image_array += jpg_image[:,:,i].astype('float64')
-				image_array = image_array/3
+		#	if image_color == 3:
+		#		for i in [1, 2]:
+		#			image_array += jpg_image[:,:,i].astype('float64')
+		#		image_array = image_array/3
 
-			# append to image array and date to class variables
-			self.ImageArrays.append(image_array)
+		#	# append to image array and date to class variables
+		#	self.ImageArrays.append(image_array)
 
-	def EstimateBackground(self, filter_size_pixels=45, plot_prompt=True):
+	def EstimateBackground(self, filter_size_pixels=45, plot_prompt=True, image_color=0):
 		'''
 		Estimate background for images using large median filter.
 		Populate BackgroundArrays and ReducedImageArrays class variables.
 		Must first run GetImages() class function	
 		'''
 
-		# ensure that class variables are populated correctly beofre continuing
-		if not self.ImagesReady():
-			print("Images are not ready. Have you run GetImages() class function?")
+		if image_color not in range(4):
+			print("image color must be 0 (red), 1 (blue), 2 (green), or 3 (averaged)")
 			exit(1)
 
 		print("\nestimating backgrounds and reducing images...")
 
 		# initialize background and reduced image arrays with the same shape as the image arrays
-		image_size = self.ImageArrays[0].shape
-		bg_array = np.zeros(image_size)
-		reduced_image_array = np.zeros(image_size)
+		#image_size = self.ImageArrays[0].shape
+		#bg_array = np.zeros(image_size)
+		#reduced_image_array = np.zeros(image_size)
+		bg_array = None
+		reduced_image_array = None
 
 		prev_mean = None
 		prev_std = None
 
-		progbar = tqdm(range(len(self.ImageArrays)), leave=True) 
+		progbar = tqdm(range(len(self.ImagePaths)), leave=True) 
 		for i in progbar:
 			new_background = False  # boolean date for estimating new background (reset each loop)
 			show_plots = False      # boolean gate for plotting image reduction steps (reset each loop)
 
-			image_array = self.ImageArrays[i]
-			#image_name_sm = self.ImagePaths[i].split("/")[-1] # file name without directory prefix 
+			image_path    = self.ImagePaths[i]
+			#image_array = self.ImageArrays[i]
+
+			# get single color from jpg
+			# Fire-i is monochrome so red=blue=green
+			jpg_image = plt.imread(image_path,'F')
+			image_array = jpg_image[:,:,image_color].astype('float64')
+			if image_color == 3:
+				for i in [1, 2]:
+					image_array += jpg_image[:,:,i].astype('float64')
+				image_array = image_array/3
 			image_name_sm = os.path.basename(self.ImagePaths[i]) # path w/out directory prefix 
 
 			# simple stats for each image array
@@ -163,7 +172,7 @@ class DoolCentroid:
 			# only estimate new background when needed (see above) to save processing time
 			if new_background:
 				progbar.clear()
-				print("(%d of %d): \033[1mestimating background\033[0m of %s (size=%d px)..." % (i+1, len(self.ImageArrays), image_name_sm, filter_size_pixels))
+				print("(%d of %d): \033[1mestimating background\033[0m of %s (size=%d px)..." % (i+1, len(self.ImagePaths), image_name_sm, filter_size_pixels))
 
 				# estimate background array with large median filter (>= twice centroid diameter of ~20px)
 				bg_array = ndimage.median_filter(image_array, size=filter_size_pixels)
@@ -182,7 +191,7 @@ class DoolCentroid:
 			reduced_image_array = ndimage.median_filter((image_array - bg_array), size=3)
 
 			# populate class variables
-			self.BackgroundArrays.append(bg_array)
+			#self.BackgroundArrays.append(bg_array)
 			self.ReducedImageArrays.append(reduced_image_array)
 
 			# set simple stats for comparison in next loop
@@ -191,7 +200,7 @@ class DoolCentroid:
 
 			if show_plots:
 				# plot image, estimated background, and reduced image for verification
-				self.BackgroundReductionPlot(i)  
+				self.BackgroundReductionPlot(i, image_array=image_array, background_array=bg_array, reduced_image_array=reduced_image_array)  
 
 				# user input to continue after viewing plots
 				res = input("Continue? [y]/n ")
@@ -317,8 +326,8 @@ class DoolCentroid:
 		
 		self.ImagePaths = [i for j, i in enumerate(self.ImagePaths) if j not in reject_frame_indices]
 		self.ImageDates = [i for j, i in enumerate(self.ImageDates) if j not in reject_frame_indices]
-		self.ImageArrays = [i for j, i in enumerate(self.ImageArrays) if j not in reject_frame_indices]
-		self.BackgroundArrays = [i for j, i in enumerate(self.BackgroundArrays) if j not in reject_frame_indices]
+		#self.ImageArrays = [i for j, i in enumerate(self.ImageArrays) if j not in reject_frame_indices]
+		#self.BackgroundArrays = [i for j, i in enumerate(self.BackgroundArrays) if j not in reject_frame_indices]
 		self.ReducedImageArrays = [i for j, i in enumerate(self.ReducedImageArrays) if j not in reject_frame_indices]
 
 		# sanity check of array sizes!
@@ -586,12 +595,12 @@ class DoolCentroid:
 					return
 				exit(0)
 
-	def BackgroundReductionPlot(self, idx):
+	def BackgroundReductionPlot(self, image_array, background_array, reduced_image_array):
 		fig, ax = plt.subplots(1,3, sharex=True, sharey=True)
 
-		ax[0].imshow(self.ImageArrays[idx], vmax=255)
-		ax[1].imshow(self.BackgroundArrays[idx], vmax=255)
-		ax[2].imshow(self.ReducedImageArrays[idx], vmax=255)
+		ax[0].imshow(image_array, vmax=255)
+		ax[1].imshow(background_array, vmax=255)
+		ax[2].imshow(reduced_image_array, vmax=255)
 
 		ax[0].set_title("Original")
 		ax[1].set_title("Background")
@@ -618,8 +627,8 @@ class DoolCentroid:
 		self.InitNumberRejected = 0
 		self.ImagePaths = [] 
 		self.ImageDates = [] 
-		self.ImageArrays = []
-		self.BackgroundArrays = []
+		#self.ImageArrays = []
+		#self.BackgroundArrays = []
 		self.ReducedImageArrays = []
 		self.CentroidWindows = []
 		self.CentroidDataFrame = pd.DataFrame()
@@ -641,10 +650,6 @@ class DoolCentroid:
 		return True
 
 	def ReducedImagesReady(self):
-		if len(self.BackgroundArrays) == 0:
-			return False
-		if len(self.ImagePaths) != len(self.BackgroundArrays):
-			return False
 		if len(self.ImagePaths) != len(self.ReducedImageArrays):
 			return False
 		return True
@@ -653,7 +658,5 @@ class DoolCentroid:
 		if len(self.ImagePaths) == 0: 
 			return False
 		if len(self.ImagePaths) != len(self.ImageDates): 
-			return False
-		if len(self.ImagePaths) != len(self.ImageArrays): 
 			return False
 		return True
