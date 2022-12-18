@@ -149,7 +149,6 @@ class DoolCentroid:
 			std = np.std(image_array)
 
 			if prev_mean == None:     # true only for first loop. 
-				progbar.clear()
 				new_background = True # must estimate initial background.
 
 			elif (mean < prev_mean-prev_std) or (mean > prev_mean+prev_std): 
@@ -163,6 +162,7 @@ class DoolCentroid:
 
 			# only estimate new background when needed (see above) to save processing time
 			if new_background:
+				progbar.clear()
 				print("(%d of %d): \033[1mestimating background\033[0m of %s (size=%d px)..." % (i+1, len(self.ImageArrays), image_name_sm, filter_size_pixels))
 
 				# estimate background array with large median filter (>= twice centroid diameter of ~20px)
@@ -237,6 +237,7 @@ class DoolCentroid:
 			if num != self.centroid_num:
 				msg = "%s rejected: %d features detected" % (image_name_sm, num)
 				reject_frame_indices.append(i)
+				progbar.clear()
 				print(msg)
 				self.InitNumberRejected += 1
 				continue
