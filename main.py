@@ -1,4 +1,4 @@
-import argparse,os
+import argparse
 import matplotlib.pyplot as plt
 from DoolCentroid import DoolCentroid
 
