@@ -377,6 +377,7 @@ if __name__ == "__main__":
 
 	# populate class variable for future class fucntions
 	CentroidWindows = peak_windows
+	DisplayWindows()
 
 	# loop through images with incorecct centroids
 	# must be done in reverse so indexes dont change each loop!
@@ -505,52 +506,56 @@ if __name__ == "__main__":
 
 	colors = [(255,0,0),  (0,0,255), (0,255,0), (255,255,255)] # will fail if 4 or more centroids!
 	frames = []
-	for image_array in ReducedImageArrays:
-		frames.append(Image.fromarray(image_array.astype('uint8')).convert("RGB"))
-
-	progbar = tqdm(range(len(frames)), leave=False)
-	for i in progbar:
-		progbar.set_description("annotating full-frame images for gif")
-		draw_full = ImageDraw.Draw(frames[i])
-		for win_num in range(len(CentroidWindows)):
-			(x0,y0) = CentroidWindows[win_num][0]
-			(x1,y1) = CentroidWindows[win_num][1]
-
-			# PIL image coordinates are flipped from ndarray coordinates! (swap x and y)
-			draw_full.rectangle((x0,y0,x1,y1), outline=colors[win_num])
-
-			r=1
-			cx = CentroidDataFrame.iloc[i]["centroid_x%d" % (win_num+1)]
-			cy = CentroidDataFrame.iloc[i]["centroid_y%d" % (win_num+1)]
-			draw_full.ellipse((cx-r,cy-r,cx+r,cy+r), colors[win_num], colors[win_num])
-
-		draw_full.text((28, 36), ImageDates[i].strftime("%m-%d-%Y %H:%M:%S"), fill=(255, 255, 255))
-
-	print("saving full-frame gif...")
-	full_frame_one = frames[0]
-	full_frame_one.save(out_path, format="GIF", append_images=tqdm(frames, leave=False),
-			save_all=True, duration=duration_ms, loop=0)
-	print("full dataset gif created at %s" % out_path)
-
-	for win_num in range(centroid_num):
-		window_frames = []
-		(x0,y0) = CentroidWindows[win_num][0]
-		(x1,y1) = CentroidWindows[win_num][1]
-		w,h = x1-x0, y1-y0
+	try:
+		for image_array in ReducedImageArrays:
+			frames.append(Image.fromarray(image_array.astype('uint8')).convert("RGB"))
 
 		progbar = tqdm(range(len(frames)), leave=False)
 		for i in progbar:
-			progbar.set_description("annotating window %d images for gif" % (win_num+1))
-			# crop and resize the pil images. integer can be fixed by not using resize()
-			window_frames.append(frames[i].crop((x0,y0,x1+1,y1+1)).resize((w*10,h*10)))
-			draw_window = ImageDraw.Draw(window_frames[i])
-			draw_window.text((28, 36), ImageDates[i].strftime("%m-%d-%Y %H:%M:%S"), fill=colors[win_num])
+			progbar.set_description("annotating full-frame images for gif")
+			draw_full = ImageDraw.Draw(frames[i])
+			for win_num in range(len(CentroidWindows)):
+				(x0,y0) = CentroidWindows[win_num][0]
+				(x1,y1) = CentroidWindows[win_num][1]
+
+				# PIL image coordinates are flipped from ndarray coordinates! (swap x and y)
+				draw_full.rectangle((x0,y0,x1,y1), outline=colors[win_num])
+
+				r=1
+				cx = CentroidDataFrame.iloc[i]["centroid_x%d" % (win_num+1)]
+				cy = CentroidDataFrame.iloc[i]["centroid_y%d" % (win_num+1)]
+				draw_full.ellipse((cx-r,cy-r,cx+r,cy+r), colors[win_num], colors[win_num])
+
+			draw_full.text((28, 36), ImageDates[i].strftime("%m-%d-%Y %H:%M:%S"), fill=(255, 255, 255))
+
+		print("saving full-frame gif...")
+		full_frame_one = frames[0]
+		full_frame_one.save(out_path, format="GIF", append_images=tqdm(frames, leave=False),
+				save_all=True, duration=duration_ms, loop=0)
+		print("full dataset gif created at %s" % out_path)
+
+		for win_num in range(centroid_num):
+			window_frames = []
+			(x0,y0) = CentroidWindows[win_num][0]
+			(x1,y1) = CentroidWindows[win_num][1]
+			w,h = x1-x0, y1-y0
+
+			progbar = tqdm(range(len(frames)), leave=False)
+			for i in progbar:
+				progbar.set_description("annotating window %d images for gif" % (win_num+1))
+				# crop and resize the pil images. integer can be fixed by not using resize()
+				window_frames.append(frames[i].crop((x0,y0,x1+1,y1+1)).resize((w*10,h*10)))
+				draw_window = ImageDraw.Draw(window_frames[i])
+				draw_window.text((28, 36), ImageDates[i].strftime("%m-%d-%Y %H:%M:%S"), fill=colors[win_num])
 
 
-		file_split = os.path.splitext(out_path)
-		window_out_path = "%s-w%d.gif" % (file_split[0], (win_num+1))
-		print("saving window %d gif..." % (win_num+1))
-		window_frame_one = window_frames[0]
-		window_frame_one.save(window_out_path, format="GIF", 
-			append_images=tqdm(window_frames, leave=False), save_all=True, duration=duration_ms, loop=0)
-		print("window %d gif created at %s" % ((win_num+1), window_out_path))
+			file_split = os.path.splitext(out_path)
+			window_out_path = "%s-w%d.gif" % (file_split[0], (win_num+1))
+			print("saving window %d gif..." % (win_num+1))
+			window_frame_one = window_frames[0]
+			window_frame_one.save(window_out_path, format="GIF", 
+				append_images=tqdm(window_frames, leave=False), save_all=True, duration=duration_ms, loop=0)
+			print("window %d gif created at %s" % ((win_num+1), window_out_path))
+	except MemoryError as e:
+		print("memory error generating gifs: too many frames to process!")
+		print(e)
