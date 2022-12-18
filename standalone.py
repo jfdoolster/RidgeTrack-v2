@@ -67,16 +67,35 @@ def getFileDate(filename):
 
 def DisplayWindows():
 
-	print()
-	# display information about each of the windows
-	for win_num in range(len(CentroidWindows)):
-		x_start = CentroidWindows[win_num][0][0]
-		y_start = CentroidWindows[win_num][0][1]
-		x_end = CentroidWindows[win_num][1][0]
-		y_end = CentroidWindows[win_num][1][1]
-		x_size = x_end - x_start
-		y_size = y_end - y_start
-		print("window_%d: (x0,y0) = (%d, %d), (x1,y1) = (%d, %d), (w,h) = (%d, %d)" % ((win_num+1), x_start, y_start, x_end, y_end, x_size, y_size))
+		print()
+		# display information about each of the windows
+		xs = []
+		ys = []
+		for win_num in range(len(CentroidWindows)):
+			(x_start,y_start) = CentroidWindows[win_num][0]
+			(x_end,y_end) = CentroidWindows[win_num][1]
+			x_size = x_end - x_start
+			y_size = y_end - y_start
+			area = x_size * y_size
+			xs.append(range(x_start, x_end+1))
+			ys.append(range(y_start, y_end+1))
+			print("window_%d: (x0,y0) = (%d, %d), (x1,y1) = (%d, %d), (w,h) = (%d, %d), A = %d pixels^2" % ((win_num+1), x_start, y_start, x_end, y_end, x_size, y_size, area))
+		
+		if (len(CentroidWindows) == 2):
+			x_inter = [value for value in xs[0] if value in xs[1]]
+			y_inter = [value for value in ys[0] if value in ys[1]]
+			warn = False
+			if len(x_inter) != 0:
+				print("Warning! Centroid windows between x=%d and x=%d" % (min(x_inter), max(x_inter)))
+				warn = True	
+			if len(y_inter) != 0:
+				print("Warning! Centroid windows between y=%d and y=%d" % (min(y_inter), max(y_inter)))
+				warn = True	
+			if warn:
+				res = input("centroid window overlap detected... continue? y/[n]")
+				if res == "y" or res=="Y":
+					return
+				exit(0)
 
 def BackgroundReductionPlot(idx):
 	fig, ax = plt.subplots(1,3, sharex=True, sharey=True)
@@ -360,11 +379,17 @@ if __name__ == "__main__":
 		print("Error: Too many windows!?! (should not happen)")
 		exit(1)
 
+	areas = []
 	for win_num in range(len(peak_windows)):
 		(x0,y0) = peak_windows[win_num][0]
 		(x1,y1) = peak_windows[win_num][1]
-		peak_windows[win_num][0] = (x0-padding, y0-padding)
-		peak_windows[win_num][1] = (x1+padding, y1+padding)
+		x_size = x1 - x0
+		y_size = y1 - y0
+		area = x_size * y_size
+		areas.append(area)
+
+	if (len(peak_windows) == 2) and (areas.index(min(areas)) != 0):
+		peak_windows[0], peak_windows[1] = peak_windows[1], peak_windows[0]
 
 	# populate class variable for future class fucntions
 	CentroidWindows = peak_windows
@@ -383,10 +408,9 @@ if __name__ == "__main__":
 	# sanity check of array sizes!
 	if len(ReducedImageArrays) != (InitNumberImages - InitNumberRejected):
 		print("Error: reduced images array is unexpected size (should not happen!?!)")
+
+	DisplayWindows()
 		
-
-
-	
 	'''
 	Locate center-of-mass centroids using windows calculated in CreateWindows class function.
 	Populate pandas dataframe ('CentroidDataFrame') class variable.
@@ -495,6 +519,7 @@ if __name__ == "__main__":
 		if res == 'n' or res == 'N':
 			exit(0)
 
+	colors = [(255,0,0),  (0,0,255), (0,255,0), (255,255,255)] # will fail if 4 or more centroids!
 	frames = []
 	for image_array in ReducedImageArrays:
 		frames.append(Image.fromarray(image_array.astype('uint8')).convert("RGB"))
@@ -508,14 +533,14 @@ if __name__ == "__main__":
 			(x1,y1) = CentroidWindows[win_num][1]
 
 			# PIL image coordinates are flipped from ndarray coordinates! (swap x and y)
-			draw_full.rectangle((x0,y0,x1,y1), outline=(255,0,0))
+			draw_full.rectangle((x0,y0,x1,y1), outline=colors[win_num])
 
 			r=1
 			cx = CentroidDataFrame.iloc[i]["centroid_x%d" % (win_num+1)]
 			cy = CentroidDataFrame.iloc[i]["centroid_y%d" % (win_num+1)]
-			draw_full.ellipse((cx-r,cy-r,cx+r,cy+r), fill=(255,0,0), outline=(255,0,0))
+			draw_full.ellipse((cx-r,cy-r,cx+r,cy+r), colors[win_num], colors[win_num])
 
-		draw_full.text((28, 36), ImageDates[i].strftime("%m-%d-%Y %H:%M:%S"), fill=(255, 0, 0))
+		draw_full.text((28, 36), ImageDates[i].strftime("%m-%d-%Y %H:%M:%S"), fill=(255, 255, 255))
 
 	print("saving full-frame gif...")
 	full_frame_one = frames[0]
@@ -535,7 +560,7 @@ if __name__ == "__main__":
 			# crop and resize the pil images. integer can be fixed by not using resize()
 			window_frames.append(frames[i].crop((x0,y0,x1+1,y1+1)).resize((w*10,h*10)))
 			draw_window = ImageDraw.Draw(window_frames[i])
-			draw_window.text((28, 36), ImageDates[i].strftime("%m-%d-%Y %H:%M:%S"), fill=(255, 0, 0))
+			draw_window.text((28, 36), ImageDates[i].strftime("%m-%d-%Y %H:%M:%S"), fill=colors[win_num])
 
 
 		file_split = os.path.splitext(out_path)
