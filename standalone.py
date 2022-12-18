@@ -519,7 +519,7 @@ if __name__ == "__main__":
 
 	print("saving full-frame gif...")
 	full_frame_one = frames[0]
-	full_frame_one.save(out_path, format="GIF", append_images=frames,
+	full_frame_one.save(out_path, format="GIF", append_images=tqdm(frames, leave=False),
 			save_all=True, duration=duration_ms, loop=0)
 	print("full dataset gif created at %s" % out_path)
 
@@ -543,5 +543,5 @@ if __name__ == "__main__":
 		print("saving window %d gif..." % (win_num+1))
 		window_frame_one = window_frames[0]
 		window_frame_one.save(window_out_path, format="GIF", 
-			append_images=window_frames, save_all=True, duration=duration_ms, loop=0)
+			append_images=tqdm(window_frames, leave=False), save_all=True, duration=duration_ms, loop=0)
 		print("window %d gif created at %s" % ((win_num+1), window_out_path))
