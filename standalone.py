@@ -20,8 +20,6 @@ InitNumberImages = 0
 InitNumberRejected = 0
 ImagePaths = []         # list of image path names
 ImageDates = []         # list of image timestamps (from path names)
-ImageArrays = []        # list of 2D arrays for each images (default: red) 
-BackgroundArrays = []   # list of 2D background arrays (estimated)
 ReducedImageArrays = [] # list of 2D reduced images arrays (ImageArrays[i] - BackgroundArrays[i])
 
 CentroidWindows = []    # pixel window locations for centroiding ([x0, y0], [x1, y1])
@@ -66,43 +64,42 @@ def getFileDate(filename):
 	return dt.datetime.strptime(datestr,'%Y-%m-%d %H:%M:%S.%f')
 
 def DisplayWindows():
+	print()
+	# display information about each of the windows
+	xs = []
+	ys = []
+	for win_num in range(len(CentroidWindows)):
+		(x_start,y_start) = CentroidWindows[win_num][0]
+		(x_end,y_end) = CentroidWindows[win_num][1]
+		x_size = x_end - x_start
+		y_size = y_end - y_start
+		area = x_size * y_size
+		xs.append(range(x_start, x_end+1))
+		ys.append(range(y_start, y_end+1))
+		print("window_%d: (x0,y0) = (%d, %d), (x1,y1) = (%d, %d), (w,h) = (%d, %d), A = %d pixels^2" % ((win_num+1), x_start, y_start, x_end, y_end, x_size, y_size, area))
+	
+	if (len(CentroidWindows) == 2):
+		x_inter = [value for value in xs[0] if value in xs[1]]
+		y_inter = [value for value in ys[0] if value in ys[1]]
+		warn = False
+		if len(x_inter) != 0:
+			print("Warning! Centroid windows between x=%d and x=%d" % (min(x_inter), max(x_inter)))
+			warn = True	
+		if len(y_inter) != 0:
+			print("Warning! Centroid windows between y=%d and y=%d" % (min(y_inter), max(y_inter)))
+			warn = True	
+		if warn:
+			res = input("centroid window overlap detected... continue? y/[n]")
+			if res == "y" or res=="Y":
+				return
+			exit(0)
 
-		print()
-		# display information about each of the windows
-		xs = []
-		ys = []
-		for win_num in range(len(CentroidWindows)):
-			(x_start,y_start) = CentroidWindows[win_num][0]
-			(x_end,y_end) = CentroidWindows[win_num][1]
-			x_size = x_end - x_start
-			y_size = y_end - y_start
-			area = x_size * y_size
-			xs.append(range(x_start, x_end+1))
-			ys.append(range(y_start, y_end+1))
-			print("window_%d: (x0,y0) = (%d, %d), (x1,y1) = (%d, %d), (w,h) = (%d, %d), A = %d pixels^2" % ((win_num+1), x_start, y_start, x_end, y_end, x_size, y_size, area))
-		
-		if (len(CentroidWindows) == 2):
-			x_inter = [value for value in xs[0] if value in xs[1]]
-			y_inter = [value for value in ys[0] if value in ys[1]]
-			warn = False
-			if len(x_inter) != 0:
-				print("Warning! Centroid windows between x=%d and x=%d" % (min(x_inter), max(x_inter)))
-				warn = True	
-			if len(y_inter) != 0:
-				print("Warning! Centroid windows between y=%d and y=%d" % (min(y_inter), max(y_inter)))
-				warn = True	
-			if warn:
-				res = input("centroid window overlap detected... continue? y/[n]")
-				if res == "y" or res=="Y":
-					return
-				exit(0)
-
-def BackgroundReductionPlot(idx):
+def BackgroundReductionPlot(image_array, background_array, reduced_image_array):
 	fig, ax = plt.subplots(1,3, sharex=True, sharey=True)
 
-	ax[0].imshow(ImageArrays[idx], vmax=255)
-	ax[1].imshow(BackgroundArrays[idx], vmax=255)
-	ax[2].imshow(ReducedImageArrays[idx], vmax=255)
+	ax[0].imshow(image_array, vmax=255)
+	ax[1].imshow(background_array, vmax=255)
+	ax[2].imshow(reduced_image_array, vmax=255)
 
 	ax[0].set_title("Original")
 	ax[1].set_title("Background")
@@ -112,7 +109,6 @@ def BackgroundReductionPlot(idx):
 	plt.show()
 
 def SingleFramePlot(idx):
-
 	fig, ax = plt.subplots(1,1, sharex=True, sharey=True)
 	ax.imshow(ReducedImageArrays[idx], vmax=255)
 
@@ -151,12 +147,6 @@ if __name__ == "__main__":
 
 
 
-	image_color=0 # red
-	# .jpgs are split into red/green/blue. Fire-i is monochrome so red=blue=green
-	if image_color not in range(4):
-		print("image color must be 0 (red), 1 (blue), 2 (green), or 3 (averaged)")
-		exit(1)
-
 	# get list of filenames from 'IN' directory
 	wildcard_jpgs_str = os.path.join(input_directory,"*.JPG")
 	image_paths = glob.glob(wildcard_jpgs_str)
@@ -187,55 +177,44 @@ if __name__ == "__main__":
 	print("%-12s %s" % ("end:", end_str))
 	print("%-12s %.2f hours" % ("duration:", hours))
 
-	print("\ncreating image arrays...")
-
-	progbar = tqdm(range(len(ImagePaths)), leave=True)
-	for i in progbar:
-		image_date    = ImageDates[i]
-		image_path    = ImagePaths[i]
-		#image_name_sm = ImagePaths[i].split("/")[-1] # path w/out directory prefix 
-		image_name_sm = os.path.basename(ImagePaths[i]) # path w/out directory prefix 
-		progbar.set_description(image_name_sm)
-
-		# get single color from jpg
-		# Fire-i is monochrome so red=blue=green
-		jpg_image = plt.imread(image_path,'F')
-
-		image_array = jpg_image[:,:,image_color].astype('float64')
-
-		if image_color == 3:
-			for i in [1, 2]:
-				image_array += jpg_image[:,:,i].astype('float64')
-			image_array = image_array/3
-
-		# append to image array and date to class variables
-		ImageArrays.append(image_array)
-
 	'''
 	Estimate background for images using large median filter.
 	Populate BackgroundArrays and ReducedImageArrays class variables.
 	Must first run GetImages() class function	
 	'''
-
-	filter_size_pixels=40
+	filter_size_pixels=45
 	plot_prompt=False
+	image_color=0
+
+	# .jpgs are split into red/green/blue. Fire-i is monochrome so red=blue=green
+	if image_color not in range(4):
+		print("image color must be 0 (red), 1 (blue), 2 (green), or 3 (averaged)")
+		exit(1)
+
 	print("\nestimating backgrounds and reducing images...")
 
-	# initialize background and reduced image arrays with the same shape as the image arrays
-	image_size = ImageArrays[0].shape
-	bg_array = np.zeros(image_size)
-	reduced_image_array = np.zeros(image_size)
+	# initialize background and reduced image arrays variables
+	bg_array = None
+	reduced_image_array = None
 
 	prev_mean = None
 	prev_std = None
 
-	progbar = tqdm(range(len(ImageArrays)), leave=True) 
+	progbar = tqdm(range(len(ImagePaths)), leave=True) 
 	for i in progbar:
 		new_background = False  # boolean date for estimating new background (reset each loop)
 		show_plots = False      # boolean gate for plotting image reduction steps (reset each loop)
 
-		image_array = ImageArrays[i]
-		#image_name_sm = ImagePaths[i].split("/")[-1] # file name without directory prefix 
+		image_path    = ImagePaths[i]
+
+		# get single color from jpg
+		# Fire-i is monochrome so red=blue=green
+		jpg_image = plt.imread(image_path,'F')
+		image_array = jpg_image[:,:,image_color].astype('float64')
+		if image_color == 3:
+			for i in [1, 2]:
+				image_array += jpg_image[:,:,i].astype('float64')
+			image_array = image_array/3
 		image_name_sm = os.path.basename(ImagePaths[i]) # path w/out directory prefix 
 
 		# simple stats for each image array
@@ -257,7 +236,7 @@ if __name__ == "__main__":
 		# only estimate new background when needed (see above) to save processing time
 		if new_background:
 			progbar.clear()
-			print("(%d of %d): \033[1mestimating background\033[0m of %s (size=%d px)..." % (i+1, len(ImageArrays), image_name_sm, filter_size_pixels))
+			print("(%d of %d): \033[1mestimating background\033[0m of %s (size=%d px)..." % (i+1, len(ImagePaths), image_name_sm, filter_size_pixels))
 
 			# estimate background array with large median filter (>= twice centroid diameter of ~20px)
 			bg_array = ndimage.median_filter(image_array, size=filter_size_pixels)
@@ -276,7 +255,6 @@ if __name__ == "__main__":
 		reduced_image_array = ndimage.median_filter((image_array - bg_array), size=3)
 
 		# populate class variables
-		BackgroundArrays.append(bg_array)
 		ReducedImageArrays.append(reduced_image_array)
 
 		# set simple stats for comparison in next loop
@@ -285,7 +263,7 @@ if __name__ == "__main__":
 
 		if show_plots:
 			# plot image, estimated background, and reduced image for verification
-			BackgroundReductionPlot(i)  
+			BackgroundReductionPlot(i, image_array=image_array, background_array=bg_array, reduced_image_array=reduced_image_array)  
 
 			# user input to continue after viewing plots
 			res = input("Continue? [y]/n ")
@@ -298,9 +276,9 @@ if __name__ == "__main__":
 	Populates CentroidWindow class function.
 	Must first run GetImages() and EstimateBackground() class functions
 	'''
+	threshold=20
+	padding=5
 
-	threshold = 20
-	padding = 5
 	# ensure window lists are empty before continuing
 	CentroidWindows = [] 
 	peak_windows = []
@@ -379,6 +357,12 @@ if __name__ == "__main__":
 		print("Error: Too many windows!?! (should not happen)")
 		exit(1)
 
+	for win_num in range(len(peak_windows)):
+		(x0,y0) = peak_windows[win_num][0]
+		(x1,y1) = peak_windows[win_num][1]
+		peak_windows[win_num][0] = (x0-padding, y0-padding)
+		peak_windows[win_num][1] = (x1+padding, y1+padding)
+	
 	areas = []
 	for win_num in range(len(peak_windows)):
 		(x0,y0) = peak_windows[win_num][0]
@@ -401,16 +385,15 @@ if __name__ == "__main__":
 	
 	ImagePaths = [i for j, i in enumerate(ImagePaths) if j not in reject_frame_indices]
 	ImageDates = [i for j, i in enumerate(ImageDates) if j not in reject_frame_indices]
-	ImageArrays = [i for j, i in enumerate(ImageArrays) if j not in reject_frame_indices]
-	BackgroundArrays = [i for j, i in enumerate(BackgroundArrays) if j not in reject_frame_indices]
+	#ImageArrays = [i for j, i in enumerate(ImageArrays) if j not in reject_frame_indices]
+	#BackgroundArrays = [i for j, i in enumerate(BackgroundArrays) if j not in reject_frame_indices]
 	ReducedImageArrays = [i for j, i in enumerate(ReducedImageArrays) if j not in reject_frame_indices]
 
 	# sanity check of array sizes!
 	if len(ReducedImageArrays) != (InitNumberImages - InitNumberRejected):
 		print("Error: reduced images array is unexpected size (should not happen!?!)")
+	
 
-	DisplayWindows()
-		
 	'''
 	Locate center-of-mass centroids using windows calculated in CreateWindows class function.
 	Populate pandas dataframe ('CentroidDataFrame') class variable.
@@ -439,6 +422,7 @@ if __name__ == "__main__":
 		for i in progbar:
 			#image_name_sm = ImagePaths[i].split("/")[-1] # file name without directory prefix 
 			image_name_sm = os.path.basename(ImagePaths[i]) # path w/out directory prefix 
+
 			progbar.set_description("%s" % (image_name_sm))
 
 			# extract pixels within current window
@@ -468,9 +452,9 @@ if __name__ == "__main__":
 	# populated CentroidDataFrame class variable using timestamps as index (legacy. matches OG RidgeTrack output)
 	CentroidDataFrame = df.set_index("timestamp")
 
-	###
-	# output dataframe and create gifs
-	###
+###
+# output dataframe and create gifs
+###
 
 	'''
 	Save dataframe as csv file
@@ -500,12 +484,12 @@ if __name__ == "__main__":
 	CentroidDataFrame.to_csv(out_path, index_label='timestamp')
 	print("centroid data written to %s" % out_path)
 
+
 	'''
 	create replay gifs for images and individual windows	
 	Must run LocateCentroid() class function first
 	'''
-
-	duration_ms = 50
+	duration_ms=50
 	print("\ncreating centroid gif files...")
 
 	out_path = os.path.join(directory, gif_path)

@@ -40,8 +40,6 @@ class DoolCentroid:
 		self.InitNumberRejected = 0
 		self.ImagePaths = []         # list of image path names
 		self.ImageDates = []         # list of image timestamps (from path names)
-		#self.ImageArrays = []        # list of 2D arrays for each images (default: red) 
-		#self.BackgroundArrays = []   # list of 2D background arrays (estimated)
 		self.ReducedImageArrays = [] # list of 2D reduced images arrays (ImageArrays[i] - BackgroundArrays[i])
 
 		self.CentroidWindows = []    # pixel window locations for centroiding ([x0, y0], [x1, y1])
@@ -51,11 +49,7 @@ class DoolCentroid:
 	# Image Processing Class Functions:
 	###
 
-	def GetImages(self, image_color=0):
-		# .jpgs are split into red/green/blue. Fire-i is monochrome so red=blue=green
-		if image_color not in range(4):
-			print("image color must be 0 (red), 1 (blue), 2 (green), or 3 (averaged)")
-			exit(1)
+	def GetImages(self):
 
 		self.ClearImages() # reset class variables to empty
 
@@ -89,46 +83,21 @@ class DoolCentroid:
 		print("%-12s %s" % ("end:", end_str))
 		print("%-12s %.2f hours" % ("duration:", hours))
 
-
-		#progbar = tqdm(range(len(self.ImagePaths)), leave=True)
-		#for i in progbar:
-		#	image_date    = self.ImageDates[i]
-		#	image_path    = self.ImagePaths[i]
-		#	#image_name_sm = self.ImagePaths[i].split("/")[-1] # path w/out directory prefix 
-		#	image_name_sm = os.path.basename(self.ImagePaths[i]) # path w/out directory prefix 
-		#	progbar.set_description(image_name_sm)
-
-		#	# get single color from jpg
-		#	# Fire-i is monochrome so red=blue=green
-		#	jpg_image = plt.imread(image_path,'F')
-
-		#	image_array = jpg_image[:,:,image_color].astype('float64')
-
-		#	if image_color == 3:
-		#		for i in [1, 2]:
-		#			image_array += jpg_image[:,:,i].astype('float64')
-		#		image_array = image_array/3
-
-		#	# append to image array and date to class variables
-		#	self.ImageArrays.append(image_array)
-
-	def EstimateBackground(self, filter_size_pixels=45, plot_prompt=True, image_color=0):
+	def EstimateBackground(self, filter_size_pixels=45, plot_prompt=False, image_color=0):
 		'''
 		Estimate background for images using large median filter.
 		Populate BackgroundArrays and ReducedImageArrays class variables.
 		Must first run GetImages() class function	
 		'''
 
+		# .jpgs are split into red/green/blue. Fire-i is monochrome so red=blue=green
 		if image_color not in range(4):
 			print("image color must be 0 (red), 1 (blue), 2 (green), or 3 (averaged)")
 			exit(1)
 
 		print("\nestimating backgrounds and reducing images...")
 
-		# initialize background and reduced image arrays with the same shape as the image arrays
-		#image_size = self.ImageArrays[0].shape
-		#bg_array = np.zeros(image_size)
-		#reduced_image_array = np.zeros(image_size)
+		# initialize background and reduced image arrays variables
 		bg_array = None
 		reduced_image_array = None
 
@@ -141,7 +110,6 @@ class DoolCentroid:
 			show_plots = False      # boolean gate for plotting image reduction steps (reset each loop)
 
 			image_path    = self.ImagePaths[i]
-			#image_array = self.ImageArrays[i]
 
 			# get single color from jpg
 			# Fire-i is monochrome so red=blue=green
@@ -191,7 +159,6 @@ class DoolCentroid:
 			reduced_image_array = ndimage.median_filter((image_array - bg_array), size=3)
 
 			# populate class variables
-			#self.BackgroundArrays.append(bg_array)
 			self.ReducedImageArrays.append(reduced_image_array)
 
 			# set simple stats for comparison in next loop
@@ -348,7 +315,6 @@ class DoolCentroid:
 		if not self.CentroidWindowsReady():
 			print("Centroid windows are not ready. Have you run CreateWindows() class function?")
 			exit(1)
-
 
 		print()
 
@@ -627,8 +593,6 @@ class DoolCentroid:
 		self.InitNumberRejected = 0
 		self.ImagePaths = [] 
 		self.ImageDates = [] 
-		#self.ImageArrays = []
-		#self.BackgroundArrays = []
 		self.ReducedImageArrays = []
 		self.CentroidWindows = []
 		self.CentroidDataFrame = pd.DataFrame()

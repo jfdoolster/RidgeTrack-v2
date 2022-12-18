@@ -14,11 +14,11 @@ if __name__ =="__main__":
     CENT = DoolCentroid(directory=argdict["directory"])
 
     # images saved in input_directory stored to CENT.ImageArrays class variable 
-    # default image_color=0 is red. image_col=3 to average all RGB (unnessecary)
     CENT.GetImages()
 
     # estimate background using median filter. estimates stored in CENT.BackgroundArrays
     # background reduced image arrays are stored in CENT.ReducedImageArrays
+    # default image_color=0 is red. image_col=3 to average all RGB (unnessecary)
     # set plot_prompt=True to study each estimated background and resultant reduced images
     CENT.EstimateBackground(filter_size_pixels=40, plot_prompt=False) 
 
