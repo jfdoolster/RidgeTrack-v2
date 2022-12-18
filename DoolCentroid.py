@@ -413,6 +413,7 @@ class DoolCentroid:
 			if res == 'n' or res == 'N':
 				return
 		
+		print("saving data to csv...")
 		self.CentroidDataFrame.to_csv(out_path, index_label='timestamp')
 		print("centroid data written to %s" % out_path)
 
@@ -447,7 +448,7 @@ class DoolCentroid:
 
 		progbar = tqdm(range(len(frames)), leave=False)
 		for i in progbar:
-			progbar.set_description("creating full-dataset gif")
+			progbar.set_description("annotating full-frame images for gif")
 			draw_full = ImageDraw.Draw(frames[i])
 			for win_num in range(len(self.CentroidWindows)):
 				(x0,y0) = self.CentroidWindows[win_num][0]
@@ -463,6 +464,7 @@ class DoolCentroid:
 
 			draw_full.text((28, 36), self.ImageDates[i].strftime("%m-%d-%Y %H:%M:%S"), fill=(255, 0, 0))
 
+		print("saving full-frame gif...")
 		full_frame_one = frames[0]
 		full_frame_one.save(out_path, format="GIF", append_images=frames,
 				save_all=True, duration=duration_ms, loop=0)
@@ -476,7 +478,7 @@ class DoolCentroid:
 
 			progbar = tqdm(range(len(frames)), leave=False)
 			for i in progbar:
-				progbar.set_description("creating window %d gif" % (win_num+1))
+				progbar.set_description("annotating window %d images for gif")
 				# crop and resize the pil images. integer can be fixed by not using resize()
 				window_frames.append(frames[i].crop((x0,y0,x1+1,y1+1)).resize((w*10,h*10)))
 				draw_window = ImageDraw.Draw(window_frames[i])
@@ -485,6 +487,7 @@ class DoolCentroid:
 
 			file_split = os.path.splitext(out_path)
 			window_out_path = "%s-w%d.gif" % (file_split[0], (win_num+1))
+			print("saving window %d gif..." % (win_num+1))
 			window_frame_one = window_frames[0]
 			window_frame_one.save(window_out_path, format="GIF", 
 				append_images=window_frames, save_all=True, duration=duration_ms, loop=0)
