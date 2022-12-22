@@ -6,7 +6,6 @@ Usage
 Calling the code on "Dooley" windows Laptop in IBCA
 
 RECOMMENDED:
-    set "IN" and "REJECT" path variables in main.py. Save.
     open powershell
     > cd ~/Desktop/RidgeTrack-v2 
     > python main.py -d /path/to/directory
@@ -15,7 +14,6 @@ RECOMMENDED:
     inside /path/to/directory where JPG images are stored.
 
 The same processing can be done using the less Object oriented program:
-    set "IN" and "REJECT" path variables in standalone.py. Save.
     open powershell
     > cd ~/Desktop/RidgeTrack-v2
     > python standalone.py -d /path/to/directory
