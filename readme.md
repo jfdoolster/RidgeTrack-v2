@@ -23,7 +23,7 @@ Open a powershell terminal and run the commands
 inside `/path/to/directory` where JPG images are stored. 
 * JPG images must be in the form `Frame_n_%d_%m_%Y_%H_%M_%S_%f`
 
-### standalone functionality (not recommanded):
+### standalone functionality (not recommended):
 The same processing is possible using the less object oriented program:
 
 ``` console
