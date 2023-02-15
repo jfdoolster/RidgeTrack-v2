@@ -1,39 +1,41 @@
-Summary of data analysis progress                                   Dec 18 2022 JFD
+Summary of data analysis progress                                   Feb 15 2023 JFD
+
+Software to processes fire-i images ('frames') from input_directory, 
+estimate the background, detect beam locations and create "windows",
+then calcuate the CoM centroid of the spots contained within each window.
 
 Usage
 ----
 
-Calling the code on "Dooley" windows Laptop in IBCA
+Software will run on any computer with the correct python environment (see installation notes below), 
+but was designed to run on "Dooley" windows Laptop in IBCA
 
 RECOMMENDED:
-    open powershell
+    Open a powershell terminal and run the commands
     > cd ~/Desktop/RidgeTrack-v2 
     > python main.py -d /path/to/directory
 
-    NB main.py uses DoolCentroid.py. software assumes there is a directory IN 
-    inside /path/to/directory where JPG images are stored.
+    NB main.py uses DoolCentroid.py. 
+    software assumes there is an `IN` directory inside `/path/to/directory` where JPG images are stored. 
+    JPG images must be in the form `Frame_n_%d_%m_%Y_%H_%M_%S_%f`
 
-The same processing can be done using the less Object oriented program:
-    open powershell
+standalone functionality (not recommanded):
+    The same processing is possible using the less object oriented program:
     > cd ~/Desktop/RidgeTrack-v2
     > python standalone.py -d /path/to/directory
 
-    NB standalone.py does NOT use DoolCentroid.py but is similar. 
+    NB standalone.py does NOT use DoolCentroid.py but has similar architecture. 
     this approach is less efficent and much more prone to bugs as it is updated.
 
 Summary
 ----
 
-DoolCentroid is a class that processes the jpg images from input_directory, 
-estimates each frame's background, detects beam locations and creates "windows",
-then calcuates the CoM centroid of the spots contained in the windows.
-
 centroiding algorithm is largely based on information found at
 http://ugastro.berkeley.edu/infrared09/PDF-2009/centroid-error.pdf
 
-The fundamental assumption is that the jpg filenames have the form
-"Frame_n_%d_%m_%Y_%H_%M_%S_%f.jpg"
-In the Fire-i softwear this is Frame_$FI_$TS
+The fundamental assumption is that the JPG filenames have the form
+`Frame_n_%d_%m_%Y_%H_%M_%S_%f.jpg`
+In the Fire-i software this is Frame_$FI_$TS
 
 Class funtions are summarized below, more detail is available as in-code comments.
 
@@ -67,7 +69,6 @@ While beam intensity doesnt change, IBCA lights turing on increaes the backgroun
 reduced image beam appears to be much dimmer. CoM centroiding shouldnt be effected too much by this, since windows
 are static across images, but may want to play with filter sizes and/or make the size dynamic based on average counts. 
 
-to upgrade libraries:
-    powershell
+to install/upgrade libraries:
     > python -m pip install --upgrade pip
     > python -m pip install --upgrade <package_name>
