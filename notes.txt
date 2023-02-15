@@ -28,7 +28,14 @@ DoolCentroid is a class that processes the jpg images from input_directory,
 estimates each frame's background, detects beam locations and creates "windows",
 then calcuates the CoM centroid of the spots contained in the windows.
 
-Class funtions are summarized below, more detail is available as in-code comments. 
+centroiding algorithm is largely based on information found at
+http://ugastro.berkeley.edu/infrared09/PDF-2009/centroid-error.pdf
+
+The fundamental assumption is that the jpg filenames have the form
+"Frame_n_%d_%m_%Y_%H_%M_%S_%f.jpg"
+In the Fire-i softwear this is Frame_$FI_$TS
+
+Class funtions are summarized below, more detail is available as in-code comments.
 
 DoolCentroid.EstimateBackground():
     estimates background for each image using median filter with default size 40pix. 
