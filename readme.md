@@ -75,7 +75,7 @@ While beam intensity doesnt change, IBCA lights turing on increaes the backgroun
 reduced image beam appears to be much dimmer. CoM centroiding shouldnt be effected too much by this, since windows
 are static across images, but may want to play with filter sizes and/or make the size dynamic based on average counts. 
 
-to upgrade libraries:
+to install/upgrade libraries:
 
 ``` console
 > python -m pip install --upgrade pip
