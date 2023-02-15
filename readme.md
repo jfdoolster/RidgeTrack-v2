@@ -39,8 +39,8 @@ this approach is less efficent and much more prone to bugs as it is updated.
 centroiding algorithm is largely based on information found at
 http://ugastro.berkeley.edu/infrared09/PDF-2009/centroid-error.pdf
 
-The fundamental assumption is that the JPG filenames have the form
-`Frame_n_%d_%m_%Y_%H_%M_%S_%f.jpg`
+The fundamental assumption is that the JPG file names have the form
+`Frame_n_%d_%m_%Y_%H_%M_%S_%f.JPG`
 In the Fire-i software this is **Frame_$FI_$TS**
 
 ### Class Functions Overview
